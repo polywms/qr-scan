@@ -1,0 +1,689 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>WMS Stock Opname v6 (Final Fix)</title>
+    <script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>
+    <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    
+    <style>
+        :root {
+            --primary: #2563eb;
+            --secondary: #475569;
+            --success: #16a34a;
+            --danger: #dc2626;
+            --warning: #ca8a04;
+            --bg: #f8fafc;
+            --card: #ffffff;
+            --text: #1e293b;
+            --border: #e2e8f0;
+        }
+        
+        body.dark-mode {
+            --bg: #0f172a;
+            --card: #1e293b;
+            --text: #f1f5f9;
+            --border: #334155;
+            --secondary: #94a3b8;
+        }
+
+        body { font-family: 'Segoe UI', sans-serif; background: var(--bg); color: var(--text); margin: 0; padding-bottom: 80px; display: flex; flex-direction: column; height: 100vh; }
+        
+        /* HEADER */
+        header { background: var(--primary); color: white; padding: 15px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        h1 { margin: 0; font-size: 1.1rem; font-weight: 700; }
+        .header-btn { background: none; border: none; color: white; font-size: 1.2rem; cursor: pointer; }
+
+        /* FILTER AREA */
+        .global-filter { background: var(--card); padding: 10px; border-bottom: 1px solid var(--border); display: flex; gap: 10px; z-index: 100; }
+        select { width: 100%; padding: 8px; border-radius: 6px; border: 1px solid var(--border); background: var(--bg); color: var(--text); }
+
+        /* NAV TABS */
+        .nav-tabs { position: fixed; bottom: 0; left: 0; width: 100%; background: var(--card); border-top: 1px solid var(--border); display: flex; justify-content: space-around; padding: 10px 0; z-index: 1000; box-shadow: 0 -2px 10px rgba(0,0,0,0.05); }
+        .nav-item { border: none; background: none; color: var(--secondary); font-size: 0.75rem; display: flex; flex-direction: column; align-items: center; gap: 4px; width: 100%; cursor: pointer; }
+        .nav-item i { font-size: 1.2rem; }
+        .nav-item.active { color: var(--primary); font-weight: bold; }
+
+        /* CONTENT */
+        .tab-content { flex: 1; overflow-y: auto; padding: 15px; display: none; }
+        .tab-content.active { display: block; }
+
+        /* COMPONENTS */
+        .card { background: var(--card); padding: 15px; border-radius: 8px; border: 1px solid var(--border); margin-bottom: 10px; box-shadow: 0 1px 2px rgba(0,0,0,0.05); }
+        
+        .btn { width: 100%; padding: 12px; border: none; border-radius: 6px; font-weight: bold; cursor: pointer; margin-top: 10px; display: flex; justify-content: center; align-items: center; gap: 8px; }
+        .btn-sm { padding: 4px 10px; font-size: 0.8rem; width: auto; display: inline-flex; margin: 0; align-items: center; gap: 5px; cursor: pointer; border-radius: 4px; border: none; }
+        
+        .btn-primary { background: var(--primary); color: white; }
+        .btn-success { background: var(--success); color: white; }
+        .btn-danger { background: var(--danger); color: white; }
+        .btn-warning { background: var(--warning); color: white; }
+        .btn-outline { background: transparent; border: 1px solid var(--border); color: var(--text); }
+
+        .form-group { margin-bottom: 12px; }
+        .form-group input, .form-group select { width: 100%; padding: 10px; border: 1px solid var(--border); border-radius: 6px; box-sizing: border-box; background: var(--bg); color: var(--text); }
+
+        /* QUICK FILTERS (OPNAME TAB) */
+        .quick-filters { display: flex; gap: 5px; margin-bottom: 15px; overflow-x: auto; padding-bottom: 5px; }
+        .filter-chip { flex: 1; padding: 8px; border-radius: 6px; background: var(--card); border: 1px solid var(--border); font-size: 0.85rem; cursor: pointer; white-space: nowrap; font-weight: 600; color: var(--secondary); transition: all 0.2s; }
+        .filter-chip.active { background: var(--primary); color: white; border-color: var(--primary); }
+
+        /* ACTIVE BOX FILTER INDICATOR */
+        .box-filter-indicator { background: #e0f2fe; color: #0284c7; padding: 10px; border-radius: 6px; margin-bottom: 15px; display: flex; justify-content: space-between; align-items: center; border: 1px solid #bae6fd; }
+
+        /* LIST ITEMS */
+        .item-row { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border); padding: 12px 0; cursor: pointer; }
+        .qty-badge { font-weight: bold; padding: 2px 6px; border-radius: 4px; font-size: 0.9rem; }
+        .qty-match { color: var(--success); background: #dcfce7; }
+        .qty-diff { color: var(--danger); background: #fee2e2; }
+        .qty-zero { color: var(--secondary); background: #f1f5f9; }
+
+        /* MODALS */
+        .overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.7); z-index: 2000; display: none; justify-content: center; align-items: center; backdrop-filter: blur(2px); }
+        .modal { background: var(--card); padding: 20px; border-radius: 12px; width: 90%; max-width: 400px; max-height: 90vh; overflow-y: auto; color: var(--text); }
+
+        /* SCANNER */
+        #reader-wrapper { display: none; padding: 15px; }
+        #reader { width: 100%; border-radius: 8px; overflow: hidden; background: black; }
+        
+        .loc-tag { display: inline-block; background: #f1f5f9; border: 1px solid var(--border); padding: 2px 6px; border-radius: 4px; font-size: 0.75rem; margin-right: 4px; color: var(--secondary); }
+
+    </style>
+</head>
+<body>
+
+<header>
+    <h1>Stock Opname v6</h1>
+    <button class="header-btn" onclick="toggleMenu()"><i class="fas fa-bars"></i></button>
+</header>
+
+<div class="global-filter">
+    <select id="filterLoc" onchange="handleFilterChange()">
+        <option value="">-- Pilih Lokasi --</option>
+    </select>
+    <select id="filterTech" onchange="handleFilterChange()" style="display:none;">
+        <option value="">-- Teknisi --</option>
+    </select>
+</div>
+
+<div id="tab-simpan" class="tab-content active">
+    <div class="card">
+        <div style="font-size:0.8rem; font-weight:bold; color:var(--primary); margin-bottom:5px;">LANGKAH 1: SCAN BARANG</div>
+        <div class="form-group">
+            <input type="text" id="simpanInputPart" placeholder="Scan / Ketik Part Number" onkeypress="handleSimpanEnter(event)">
+        </div>
+        <button class="btn btn-primary" onclick="startScanner('simpan-part')"><i class="fas fa-qrcode"></i> Scan Part</button>
+    </div>
+
+    <div id="simpanDetailArea" style="display:none;">
+        <div class="card" style="border-left: 5px solid var(--primary);">
+            <h3 id="simpanPartNo" style="margin:0;">-</h3>
+            <p id="simpanDesc" style="color:var(--secondary); font-size:0.9rem; margin:5px 0;">-</p>
+            
+            <div style="margin-top:10px; background:var(--bg); padding:10px; border-radius:6px;">
+                <small>Lokasi Saat Ini:</small>
+                <div id="simpanCurrentLocs" style="margin-top:5px;"></div>
+            </div>
+
+            <div class="form-group" style="margin-top:15px;">
+                <label>Jumlah:</label>
+                <input type="number" id="simpanQty" value="1" min="1" style="font-size:1.5rem; text-align:center;">
+            </div>
+        </div>
+
+        <div class="card">
+            <div style="font-size:0.8rem; font-weight:bold; color:var(--primary); margin-bottom:5px;">LANGKAH 2: SCAN BOX TUJUAN</div>
+            <div class="form-group">
+                <input type="text" id="simpanInputBox" placeholder="Scan Box Tujuan" onkeypress="handleSimpanBoxEnter(event)">
+            </div>
+            <button class="btn btn-warning" onclick="startScanner('simpan-box')"><i class="fas fa-box"></i> Scan Box Tujuan</button>
+        </div>
+    </div>
+</div>
+
+<div id="tab-opname" class="tab-content">
+    
+    <div id="opnameSearchArea" class="card">
+        <div style="font-size:0.8rem; font-weight:bold; color:var(--secondary); margin-bottom:5px;">AUDIT PER BOX (OPSIONAL)</div>
+        <div style="display:flex; gap:10px;">
+            <input type="text" id="opnameInputBox" placeholder="Scan Box untuk filter..." onkeypress="handleOpnameBoxEnter(event)" style="flex:1; padding:10px; border:1px solid var(--border); border-radius:6px;">
+            <button class="btn-sm btn-primary" onclick="startScanner('opname')"><i class="fas fa-qrcode"></i></button>
+        </div>
+    </div>
+
+    <div id="activeBoxIndicator" class="box-filter-indicator" style="display:none;">
+        <div><i class="fas fa-box-open"></i> Filter Box: <b id="activeBoxName"></b></div>
+        <button class="btn-sm btn-danger" onclick="clearOpnameBoxFilter()">Reset (Tampilkan Semua)</button>
+    </div>
+
+    <div class="quick-filters">
+        <button class="filter-chip active" onclick="setOpnameFilter('all', this)">SEMUA</button>
+        <button class="filter-chip" onclick="setOpnameFilter('diff', this)">SELISIH</button>
+        <button class="filter-chip" onclick="setOpnameFilter('zero', this)">BELUM SCAN</button>
+    </div>
+
+    <div id="opnameListResult"></div>
+    <div id="loadingMore" style="text-align:center; padding:10px; display:none; color:var(--secondary);"><i class="fas fa-spinner fa-spin"></i> Load more...</div>
+</div>
+
+<div id="tab-cari" class="tab-content">
+    <div class="form-group">
+        <input type="text" id="cariInput" placeholder="Cari Part Number / Deskripsi..." onkeyup="handleCariRender()">
+    </div>
+    <div id="cariResultList"></div>
+</div>
+
+<div id="reader-wrapper">
+    <div class="card" style="background:black; padding:5px;">
+        <div id="reader"></div>
+        <button class="btn btn-danger" onclick="stopScanner()">Tutup Kamera</button>
+    </div>
+</div>
+
+<div class="overlay" id="actionModal">
+    <div class="modal">
+        <h3>Konfirmasi Penyimpanan</h3>
+        <p>Part ini sudah ada di <b id="modalExistingLocs"></b>.</p>
+        <p>Simpan <b><span id="modalQty"></span></b> pcs ke <b><span id="modalTargetBox"></span></b>?</p>
+        <hr>
+        <button class="btn btn-success" onclick="executeSave('add')">
+            <div style="text-align:left;">
+                <div><i class="fas fa-plus-circle"></i> SPLIT / TAMBAH</div>
+                <small style="font-weight:normal;">Total bertambah. Barang dibagi ke box ini.</small>
+            </div>
+        </button>
+        <div style="margin-top:10px;">
+            <button class="btn btn-warning" onclick="document.getElementById('moveSourceDiv').style.display='block'">
+                <div style="text-align:left;">
+                    <div><i class="fas fa-exchange-alt"></i> PINDAHKAN (MOVE)</div>
+                    <small style="font-weight:normal;">Total TETAP. Pindah dari box lain.</small>
+                </div>
+            </button>
+            <div id="moveSourceDiv" style="display:none; margin-top:5px; padding:10px; background:var(--bg); border:1px solid var(--border);">
+                <label>Ambil dari:</label>
+                <select id="moveSourceSelect"></select>
+                <button class="btn btn-primary" onclick="executeSave('move')">Konfirmasi Pindah</button>
+            </div>
+        </div>
+        <button class="btn btn-outline" onclick="closeActionModal()">Batal</button>
+    </div>
+</div>
+
+<div class="overlay" id="editModal">
+    <div class="modal">
+        <h3>Koreksi Manual</h3>
+        <p id="editPartTitle" style="font-weight:bold; color:var(--primary); margin-bottom:5px;"></p>
+        <p id="editDescTitle" style="font-size:0.8rem; color:var(--secondary);"></p>
+        <hr>
+        <div id="editLocsList"></div>
+        <div style="margin-top:10px; border-top:1px dashed var(--border); padding-top:10px;">
+            <label style="font-size:0.8rem;">Tambah Lokasi Manual:</label>
+            <div style="display:flex; gap:5px;">
+                <input type="text" id="editNewBox" placeholder="Nama Box">
+                <input type="number" id="editNewQty" placeholder="Qty" style="width:60px;">
+                <button class="btn-sm btn-primary" onclick="addManualLoc()"><i class="fas fa-plus"></i></button>
+            </div>
+        </div>
+        <button class="btn btn-success" onclick="saveManualEdit()">Simpan Koreksi</button>
+        <button class="btn btn-outline" onclick="document.getElementById('editModal').style.display='none'">Batal</button>
+    </div>
+</div>
+
+<div class="overlay" id="menuModal" onclick="if(event.target===this) toggleMenu()">
+    <div class="modal">
+        <h2>Menu Utama</h2>
+        <button class="btn btn-outline" onclick="toggleDarkMode()"><i class="fas fa-moon"></i> Ganti Tema</button>
+        <hr>
+        <button class="btn btn-success" onclick="document.getElementById('fileInput').click()"><i class="fas fa-file-excel"></i> Import XLSX</button>
+        <input type="file" id="fileInput" hidden accept=".xlsx,.csv" onchange="handleImport(this)">
+        <button class="btn btn-primary" onclick="exportData()"><i class="fas fa-file-export"></i> Export XLSX</button>
+        <hr>
+        <button class="btn btn-warning" onclick="backupJson()"><i class="fas fa-save"></i> Backup JSON</button>
+        <button class="btn btn-warning" onclick="document.getElementById('jsonInput').click()"><i class="fas fa-upload"></i> Restore JSON</button>
+        <input type="file" id="jsonInput" hidden accept=".json" onchange="restoreJson(this)">
+        <hr>
+        <button class="btn btn-danger" onclick="clearData()"><i class="fas fa-trash"></i> Reset Database</button>
+        <button class="btn btn-outline" onclick="toggleMenu()">Tutup</button>
+    </div>
+</div>
+
+<div class="nav-tabs">
+    <button class="nav-item active" onclick="switchTab('simpan')"><i class="fas fa-dolly"></i> SIMPAN</button>
+    <button class="nav-item" onclick="switchTab('opname')"><i class="fas fa-clipboard-check"></i> OPNAME</button>
+    <button class="nav-item" onclick="switchTab('cari')"><i class="fas fa-search"></i> CARI</button>
+</div>
+
+<div id="toast" style="visibility:hidden; min-width:250px; background:#333; color:#fff; text-align:center; padding:12px; position:fixed; bottom:70px; left:50%; transform:translateX(-50%); z-index:3000; border-radius:4px;"></div>
+
+<script>
+    // --- DATABASE ---
+    const DB_NAME = 'WMS_Stock_v6';
+    let db = null;
+    let localItems = [];
+    let filteredItems = [];
+
+    // --- STATE ---
+    let currentTab = 'simpan';
+    let opnameFilter = 'all'; // all, diff, zero
+    let activeBoxFilter = null; // null or box string
+    let renderLimit = 50;
+    
+    let scanner = null;
+    let scanTarget = '';
+    let tempPart = null; // Simpan process
+    let editId = null;   // Edit process
+
+    window.onload = async () => {
+        await initDB();
+        if(localStorage.getItem('darkMode')==='true') document.body.classList.add('dark-mode');
+        
+        // Infinite Scroll Opname
+        const opTab = document.getElementById('tab-opname');
+        opTab.addEventListener('scroll', () => {
+            if(opTab.scrollTop + opTab.clientHeight >= opTab.scrollHeight - 50) {
+                renderLimit += 50;
+                handleOpnameRender();
+            }
+        });
+    };
+
+    function initDB() {
+        return new Promise(resolve => {
+            const req = indexedDB.open(DB_NAME, 1);
+            req.onupgradeneeded = e => e.target.result.createObjectStore('items', { keyPath: 'id' });
+            req.onsuccess = e => { db = e.target.result; loadData().then(resolve); };
+        });
+    }
+
+    async function loadData() {
+        return new Promise(resolve => {
+            const tx = db.transaction('items', 'readonly');
+            tx.objectStore('items').getAll().onsuccess = e => {
+                localItems = e.target.result || [];
+                localItems.forEach(i => { if(!i.locations) i.locations = {}; });
+                localItems.sort((a,b) => a.partNo.localeCompare(b.partNo));
+                populateFilters();
+                resolve();
+            };
+        });
+    }
+
+    // --- FILTERS ---
+    function populateFilters() {
+        const locs = [...new Set(localItems.map(i => i.locType))].filter(Boolean).sort();
+        const selLoc = document.getElementById('filterLoc');
+        selLoc.innerHTML = '<option value="">-- Pilih Lokasi --</option>';
+        locs.forEach(l => selLoc.innerHTML += `<option value="${l}">${l}</option>`);
+
+        const techs = [...new Set(localItems.map(i => i.techName))].filter(Boolean).sort();
+        const selTech = document.getElementById('filterTech');
+        selTech.innerHTML = '<option value="">-- Teknisi --</option>';
+        techs.forEach(t => selTech.innerHTML += `<option value="${t}">${t}</option>`);
+    }
+
+    function handleFilterChange() {
+        const loc = document.getElementById('filterLoc').value;
+        const tech = document.getElementById('filterTech').value;
+        document.getElementById('filterTech').style.display = loc.toUpperCase().includes('TEKNISI') ? 'block' : 'none';
+
+        if (!loc) filteredItems = [];
+        else filteredItems = localItems.filter(i => {
+            let m = i.locType === loc;
+            if(m && loc.toUpperCase().includes('TEKNISI') && tech) m = i.techName === tech;
+            return m;
+        });
+        
+        // Reset Views
+        document.getElementById('simpanDetailArea').style.display = 'none';
+        clearOpnameBoxFilter(); // Reset box filter
+        handleOpnameRender();
+    }
+
+    // --- TAB 1: SIMPAN ---
+    function handleSimpanEnter(e) { if(e.key==='Enter') processSimpanPart(e.target.value); }
+    function handleSimpanBoxEnter(e) { if(e.key==='Enter') processSimpanBox(e.target.value); }
+
+    function processSimpanPart(code) {
+        code = code.trim().toUpperCase();
+        if(!code || filteredItems.length === 0) return;
+        
+        let item = filteredItems.find(i => i.partNo.toUpperCase() === code);
+        if(!item) {
+            if(confirm("Part tidak ditemukan di filter lokasi ini. Buat Baru?")) item = createNewItem(code);
+            else return;
+        }
+        tempPart = item;
+        renderSimpanDetail(item);
+    }
+
+    function createNewItem(code) {
+        const item = {
+            id: Date.now(), partNo: code, desc: "Item Baru", 
+            locType: document.getElementById('filterLoc').value,
+            techName: document.getElementById('filterTech').value,
+            locations: {}, sysQty: 0, raw: {}
+        };
+        localItems.push(item); filteredItems.push(item);
+        return item;
+    }
+
+    function renderSimpanDetail(item) {
+        document.getElementById('simpanDetailArea').style.display = 'block';
+        document.getElementById('simpanPartNo').innerText = item.partNo;
+        document.getElementById('simpanDesc').innerText = item.desc;
+        const div = document.getElementById('simpanCurrentLocs');
+        div.innerHTML = '';
+        const locs = Object.keys(item.locations);
+        if(locs.length===0) div.innerHTML = '<i>Belum ada lokasi</i>';
+        else locs.forEach(k => div.innerHTML += `<span class="loc-tag">${k}: ${item.locations[k]}</span>`);
+        document.getElementById('simpanInputBox').focus();
+    }
+
+    function processSimpanBox(box) {
+        box = box.trim().toUpperCase();
+        if(!box || !tempPart) return;
+        const qty = parseInt(document.getElementById('simpanQty').value) || 1;
+        const locs = Object.keys(tempPart.locations);
+        
+        if(locs.length === 0 || tempPart.locations[box]) executeSaveDirect(box, qty);
+        else openActionModal(box, qty, locs);
+    }
+
+    function openActionModal(box, qty, locs) {
+        document.getElementById('actionModal').style.display = 'flex';
+        document.getElementById('modalExistingLocs').innerText = locs.join(', ');
+        document.getElementById('modalQty').innerText = qty;
+        document.getElementById('modalTargetBox').innerText = box;
+        const sel = document.getElementById('moveSourceSelect');
+        sel.innerHTML = '';
+        locs.forEach(l => sel.innerHTML += `<option value="${l}">${l} (Stok: ${tempPart.locations[l]})</option>`);
+        document.getElementById('moveSourceDiv').style.display = 'none';
+        tempPart.tempTarget = box; tempPart.tempQty = qty;
+    }
+
+    function executeSave(mode) {
+        const item = tempPart; const box = item.tempTarget; const qty = item.tempQty;
+        if(mode === 'add') {
+            item.locations[box] = (item.locations[box] || 0) + qty;
+            showToast("Berhasil Disimpan");
+        } else {
+            const src = document.getElementById('moveSourceSelect').value;
+            if(item.locations[src] < qty) return alert("Stok tidak cukup!");
+            item.locations[src] -= qty;
+            if(item.locations[src] <= 0) delete item.locations[src];
+            item.locations[box] = (item.locations[box] || 0) + qty;
+            showToast("Berhasil Dipindahkan");
+        }
+        saveDB(item); closeActionModal(); resetSimpan();
+    }
+    
+    function executeSaveDirect(box, qty) {
+        tempPart.locations[box] = (tempPart.locations[box] || 0) + qty;
+        saveDB(tempPart); showToast("Disimpan"); resetSimpan();
+    }
+    function resetSimpan() {
+        document.getElementById('simpanDetailArea').style.display = 'none';
+        document.getElementById('simpanInputPart').value = '';
+        document.getElementById('simpanInputBox').value = '';
+        document.getElementById('simpanInputPart').focus();
+    }
+    function closeActionModal() { document.getElementById('actionModal').style.display = 'none'; }
+
+    // --- TAB 2: OPNAME (CORE) ---
+    function handleOpnameBoxEnter(e) { if(e.key==='Enter') setOpnameBoxFilter(e.target.value); }
+
+    function setOpnameBoxFilter(box) {
+        box = box.trim().toUpperCase();
+        if(!box) return;
+        activeBoxFilter = box;
+        document.getElementById('activeBoxName').innerText = box;
+        document.getElementById('activeBoxIndicator').style.display = 'flex';
+        document.getElementById('opnameSearchArea').style.display = 'none';
+        renderLimit = 50;
+        handleOpnameRender();
+    }
+
+    function clearOpnameBoxFilter() {
+        activeBoxFilter = null;
+        document.getElementById('activeBoxIndicator').style.display = 'none';
+        document.getElementById('opnameSearchArea').style.display = 'block';
+        document.getElementById('opnameInputBox').value = '';
+        renderLimit = 50;
+        handleOpnameRender();
+    }
+
+    function setOpnameFilter(type, btn) {
+        opnameFilter = type;
+        document.querySelectorAll('.filter-chip').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        renderLimit = 50;
+        handleOpnameRender();
+    }
+
+    function handleOpnameRender() {
+        const container = document.getElementById('opnameListResult');
+        container.innerHTML = '';
+        
+        if(filteredItems.length === 0) {
+            container.innerHTML = '<div style="padding:20px; text-align:center; color:#999">Silakan Pilih Lokasi/Teknisi Dulu</div>';
+            return;
+        }
+
+        // 1. Filter by Active Box (if any)
+        let dataset = filteredItems;
+        if(activeBoxFilter) {
+            dataset = dataset.filter(i => i.locations[activeBoxFilter]);
+        }
+
+        // 2. Filter by Status (Semua/Selisih/Belum)
+        dataset = dataset.filter(i => {
+            const totalPhys = Object.values(i.locations).reduce((a,b)=>a+b,0);
+            if(opnameFilter === 'diff') return totalPhys !== i.sysQty;
+            if(opnameFilter === 'zero') return totalPhys === 0;
+            return true;
+        });
+
+        // 3. Render
+        const show = dataset.slice(0, renderLimit);
+        
+        if(show.length === 0) {
+            container.innerHTML = '<div style="padding:20px; text-align:center; color:#999">Tidak ada data sesuai filter</div>';
+        }
+
+        show.forEach(i => {
+            const totalPhys = Object.values(i.locations).reduce((a,b)=>a+b,0);
+            let badgeClass = 'qty-diff';
+            if(totalPhys === i.sysQty) badgeClass = 'qty-match';
+            if(totalPhys === 0) badgeClass = 'qty-zero';
+
+            // Location String
+            let locStr = '';
+            if(activeBoxFilter) {
+                // If box filter active, show qty in THAT box
+                locStr = `Box ${activeBoxFilter}: <b>${i.locations[activeBoxFilter]}</b> pcs`;
+            } else {
+                // Show all locs
+                locStr = Object.entries(i.locations).map(([k,v])=>`${k}(${v})`).join(', ');
+            }
+
+            const div = document.createElement('div');
+            div.className = 'item-row';
+            div.onclick = () => openEditModal(i.id);
+            div.innerHTML = `
+                <div style="flex:1;">
+                    <div style="font-weight:bold; font-size:1rem;">${i.partNo}</div>
+                    <div style="font-size:0.8rem; color:#666;">${i.desc}</div>
+                    <div style="font-size:0.75rem; margin-top:4px; color:#475569;">
+                        <i class="fas fa-map-marker-alt"></i> ${locStr || 'Belum ada'}
+                    </div>
+                </div>
+                <div style="text-align:right; margin-left:10px;">
+                    <span class="qty-badge ${badgeClass}">${totalPhys} / ${i.sysQty}</span>
+                </div>
+            `;
+            container.appendChild(div);
+        });
+        
+        document.getElementById('loadingMore').style.display = (renderLimit < dataset.length) ? 'block' : 'none';
+    }
+
+    // --- TAB 3: CARI ---
+    function handleCariRender() {
+        const q = document.getElementById('cariInput').value.toLowerCase();
+        const container = document.getElementById('cariResultList');
+        container.innerHTML = '';
+        if(q.length < 2) return;
+
+        const res = filteredItems.filter(i => 
+            i.partNo.toLowerCase().includes(q) || i.desc.toLowerCase().includes(q)
+        ).slice(0, 20);
+
+        res.forEach(i => {
+            const total = Object.values(i.locations).reduce((a,b)=>a+b,0);
+            const locs = Object.entries(i.locations).map(([k,v])=>`${k}(${v})`).join(', ');
+            const div = document.createElement('div');
+            div.className = 'card'; div.style.padding = '10px';
+            div.onclick = () => { switchTab('opname'); openEditModal(i.id); }; // Jump to edit
+            div.innerHTML = `
+                <div style="display:flex; justify-content:space-between;"><b>${i.partNo}</b> <span>Total: ${total}</span></div>
+                <div style="font-size:0.8rem; color:#666">${i.desc}</div>
+                <div style="font-size:0.8rem; color:#2563eb; margin-top:5px;">${locs}</div>
+            `;
+            container.appendChild(div);
+        });
+    }
+
+    // --- EDIT MANUAL ---
+    function openEditModal(id) {
+        editId = id;
+        const item = localItems.find(i => i.id === id);
+        if(!item) return;
+        document.getElementById('editModal').style.display = 'flex';
+        document.getElementById('editPartTitle').innerText = item.partNo;
+        document.getElementById('editDescTitle').innerText = item.desc;
+        const list = document.getElementById('editLocsList');
+        list.innerHTML = '';
+        Object.keys(item.locations).forEach(box => {
+            const row = document.createElement('div');
+            row.style.cssText = "display:flex; justify-content:space-between; margin-bottom:8px;";
+            row.innerHTML = `
+                <span>${box}</span>
+                <div>
+                    <input type="number" class="edit-qty-input" data-box="${box}" value="${item.locations[box]}" style="width:60px; padding:5px;">
+                    <button class="btn-sm btn-danger" onclick="deleteLoc('${box}')"><i class="fas fa-trash"></i></button>
+                </div>`;
+            list.appendChild(row);
+        });
+    }
+
+    function deleteLoc(box) {
+        if(confirm("Hapus lokasi ini?")) {
+            const item = localItems.find(i => i.id === editId);
+            delete item.locations[box];
+            saveDB(item); openEditModal(editId);
+        }
+    }
+    function addManualLoc() {
+        const box = document.getElementById('editNewBox').value.trim().toUpperCase();
+        const qty = parseInt(document.getElementById('editNewQty').value);
+        if(!box || !qty) return;
+        const item = localItems.find(i => i.id === editId);
+        item.locations[box] = qty;
+        saveDB(item); document.getElementById('editNewBox').value=''; document.getElementById('editNewQty').value=''; openEditModal(editId);
+    }
+    function saveManualEdit() {
+        const item = localItems.find(i => i.id === editId);
+        document.querySelectorAll('.edit-qty-input').forEach(inp => {
+            const val = parseInt(inp.value);
+            if(val > 0) item.locations[inp.dataset.box] = val;
+            else delete item.locations[inp.dataset.box];
+        });
+        saveDB(item); document.getElementById('editModal').style.display='none'; showToast("Dikoreksi");
+        handleOpnameRender();
+    }
+
+    function saveDB(item) {
+        const tx = db.transaction('items', 'readwrite');
+        tx.objectStore('items').put(item);
+    }
+
+    // --- SCANNER ---
+    function startScanner(target) {
+        scanTarget = target;
+        document.getElementById('reader-wrapper').style.display = 'block';
+        scanner = new Html5Qrcode("reader");
+        scanner.start({ facingMode: "environment" }, { fps: 10, qrbox: 250 }, txt => {
+            stopScanner();
+            if(scanTarget==='simpan-part') { document.getElementById('simpanInputPart').value=txt; processSimpanPart(txt); }
+            if(scanTarget==='simpan-box') { document.getElementById('simpanInputBox').value=txt; processSimpanBox(txt); }
+            if(scanTarget==='opname') { document.getElementById('opnameInputBox').value=txt; setOpnameBoxFilter(txt); }
+        });
+    }
+    function stopScanner() { if(scanner) scanner.stop().then(()=>document.getElementById('reader-wrapper').style.display='none'); }
+
+    // --- UTILS ---
+    function handleImport(input) {
+        const f = input.files[0]; if(!f) return;
+        const r = new FileReader();
+        r.onload = e => {
+            const wb = XLSX.read(e.target.result, {type:'array'});
+            const json = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], {defval:''});
+            const tx = db.transaction('items', 'readwrite');
+            const st = tx.objectStore('items'); st.clear();
+            json.forEach((row, idx) => {
+                st.add({
+                    id: idx+1,
+                    locType: row['Tipe Lokasi']||'UMUM',
+                    techName: row['Nama']||'',
+                    partNo: String(row['Part']||row['Nomor Gudang']||'').trim(),
+                    desc: row['Deskripsi Part']||'',
+                    sysQty: parseInt(row['Available QTY']||0),
+                    locations: {}, raw: row
+                });
+            });
+            tx.oncomplete = () => location.reload();
+        }; r.readAsArrayBuffer(f);
+    }
+    function exportData() {
+        const data = localItems.map(i => {
+            let row = {...i.raw};
+            const phys = Object.values(i.locations).reduce((a,b)=>a+b,0);
+            row['QTY Fisik'] = phys;
+            row['Lokasi Detail'] = Object.entries(i.locations).map(([k,v])=>`${k}(${v})`).join(', ');
+            row['Selisih'] = phys - i.sysQty;
+            return row;
+        });
+        const ws = XLSX.utils.json_to_sheet(data);
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, "SO_WMS_Result");
+        XLSX.writeFile(wb, "Hasil_Stock_Opname.xlsx"); toggleMenu();
+    }
+    function backupJson() {
+        const b = new Blob([JSON.stringify(localItems)], {type:'application/json'});
+        const a = document.createElement('a'); a.href = URL.createObjectURL(b); a.download='backup.json'; a.click(); toggleMenu();
+    }
+    function restoreJson(input) {
+        const f = input.files[0]; if(!f) return;
+        const r = new FileReader(); r.onload = e => {
+            const data = JSON.parse(e.target.result);
+            const tx = db.transaction('items', 'readwrite'); const st = tx.objectStore('items'); st.clear();
+            data.forEach(i => st.add(i)); tx.oncomplete = () => location.reload();
+        }; r.readAsText(f);
+    }
+    function toggleMenu() { const e = document.getElementById('menuModal'); e.style.display = e.style.display==='flex'?'none':'flex'; }
+    function toggleDarkMode() { document.body.classList.toggle('dark-mode'); localStorage.setItem('darkMode', document.body.classList.contains('dark-mode')); }
+    function switchTab(id) {
+        currentTab = id;
+        document.querySelectorAll('.tab-content').forEach(e => e.classList.remove('active'));
+        document.getElementById('tab-'+id).classList.add('active');
+        document.querySelectorAll('.nav-item').forEach(e => e.classList.remove('active'));
+        event.currentTarget.classList.add('active');
+        if(id === 'opname') handleOpnameRender();
+    }
+    function showToast(m) { const t=document.getElementById('toast'); t.innerText=m; t.style.visibility='visible'; setTimeout(()=>t.style.visibility='hidden',3000); }
+    function clearData() { if(confirm("Hapus Semua?")) { const tx=db.transaction('items','readwrite'); tx.objectStore('items').clear(); tx.oncomplete=()=>location.reload(); }}
+</script>
+</body>
+</html>
