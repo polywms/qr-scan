@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>WMS: Inbound & Opname V4</title>
+    <title>WMS V5: Inbound & Opname</title>
     <script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     
@@ -21,7 +21,7 @@
             --border: #e2e8f0;
             --danger: #dc2626;
             
-            --active-color: var(--primary); /* Dynamic based on Tab */
+            --active-color: var(--primary); 
         }
         
         body.dark-mode {
@@ -32,19 +32,62 @@
             --secondary: #94a3b8;
         }
 
-        body { font-family: 'Inter', 'Segoe UI', sans-serif; background: var(--bg); color: var(--text); margin: 0; padding-bottom: 80px; display: flex; flex-direction: column; height: 100vh; overscroll-behavior: none; transition: background 0.3s; }
+        body { 
+            font-family: 'Inter', 'Segoe UI', sans-serif; 
+            background: var(--bg); 
+            color: var(--text); 
+            margin: 0; 
+            padding-top: 100px; /* Space for Header + Tabs */
+            padding-bottom: 0;
+            display: flex; 
+            flex-direction: column; 
+            height: 100vh; 
+            overscroll-behavior: none; 
+            transition: background 0.3s; 
+        }
         
-        /* HEADER */
-        header { background: var(--active-color); color: white; padding: 12px 15px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 2px 5px rgba(0,0,0,0.1); transition: background 0.3s; }
+        /* HEADER FIXED */
+        header { 
+            position: fixed; top: 0; left: 0; width: 100%; 
+            background: var(--active-color); color: white; 
+            padding: 10px 15px; display: flex; justify-content: space-between; align-items: center; 
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1); z-index: 1000; height: 50px; box-sizing: border-box;
+            transition: background 0.3s; 
+        }
         h1 { margin: 0; font-size: 1.1rem; font-weight: 700; letter-spacing: 0.5px; }
         .header-btn { background: none; border: none; color: white; font-size: 1.2rem; cursor: pointer; padding: 5px; }
+
+        /* NAV TABS (PINDAH KE ATAS) */
+        .nav-tabs { 
+            position: fixed; top: 50px; left: 0; width: 100%; 
+            background: var(--card); border-bottom: 1px solid var(--border); 
+            display: flex; height: 50px; z-index: 999; 
+            box-shadow: 0 2px 5px rgba(0,0,0,0.05); 
+        }
+        .nav-item { 
+            flex: 1; border: none; background: none; color: var(--secondary); 
+            font-size: 0.75rem; display: flex; flex-direction: column; 
+            align-items: center; justify-content: center; gap: 2px; 
+            cursor: pointer; transition: color 0.3s; 
+        }
+        .nav-item.active { color: var(--active-color); font-weight: 700; border-bottom: 3px solid var(--active-color); }
+        .nav-item i { font-size: 1.2rem; }
+
+        /* CONTENT WRAPPER */
+        .main-content-wrapper {
+            flex: 1; display: flex; flex-direction: column; overflow: hidden;
+        }
 
         /* FILTER GLOBAL */
         .global-filter { background: var(--card); padding: 8px 15px; border-bottom: 1px solid var(--border); display: flex; gap: 10px; z-index: 90; }
         select { width: 100%; padding: 10px; border-radius: 6px; border: 1px solid var(--border); background: var(--bg); color: var(--text); font-weight: 500; font-size: 0.9rem; }
 
         /* SCANNER BAR */
-        .scanner-bar { background: var(--card); padding: 10px 15px; border-bottom: 3px solid var(--active-color); position: sticky; top: 0; z-index: 100; box-shadow: 0 2px 4px rgba(0,0,0,0.03); transition: border-color 0.3s; }
+        .scanner-bar { 
+            background: var(--card); padding: 10px 15px; border-bottom: 3px solid var(--active-color); 
+            position: sticky; top: 0; z-index: 100; 
+            box-shadow: 0 2px 4px rgba(0,0,0,0.03); transition: border-color 0.3s; 
+        }
         .input-wrapper { position: relative; display: flex; gap: 8px; }
         .main-input { 
             width: 100%; padding: 12px 40px 12px 15px; 
@@ -83,7 +126,8 @@
         .qty-badge { font-weight: bold; padding: 4px 10px; border-radius: 6px; font-size: 0.95rem; min-width: 30px; text-align: center; }
         .qty-match { background: #dcfce7; color: #166534; }
         .qty-diff { background: #fee2e2; color: #991b1b; }
-        .qty-zero { background: #f1f5f9; color: #64748b; }
+        .qty-zero { background: #f1f5f9; color: #64748b; } /* 0 = Counted as 0 (Empty) */
+        .qty-uncounted { background: #e2e8f0; color: #64748b; border:1px dashed #94a3b8; } /* 0 = Inbound/Not Counted */
 
         /* SEGMENTED TABS */
         .segment-control { display: flex; width: 100%; background: var(--card); border-bottom: 1px solid var(--border); margin-bottom: 10px; }
@@ -95,14 +139,7 @@
         .multi-panel { background: #f3e8ff; border: 1px solid #d8b4fe; padding: 10px; border-radius: 8px; margin-bottom: 15px; display: none; }
         .multi-tag { background: #a855f7; color: white; padding: 4px 10px; border-radius: 20px; font-size: 0.75rem; margin-right: 5px; margin-bottom: 5px; display: inline-block; }
         
-        /* INFO MODE PANEL (Opname Flow B) */
         .info-mode-panel { background: #fff7ed; border: 2px dashed #f97316; padding: 20px; border-radius: 12px; text-align: center; margin-bottom: 20px; display:none; }
-
-        /* NAV TABS */
-        .nav-tabs { position: fixed; bottom: 0; left: 0; width: 100%; background: var(--card); border-top: 1px solid var(--border); display: flex; height: 60px; z-index: 1000; box-shadow: 0 -2px 10px rgba(0,0,0,0.05); }
-        .nav-item { flex: 1; border: none; background: none; color: var(--secondary); font-size: 0.75rem; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; cursor: pointer; transition: color 0.3s; }
-        .nav-item.active { color: var(--active-color); font-weight: 700; }
-        .nav-item i { font-size: 1.4rem; }
 
         /* MODALS */
         .overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.6); z-index: 2000; display: none; justify-content: center; align-items: center; backdrop-filter: blur(2px); }
@@ -113,125 +150,146 @@
         .btn-danger { background: var(--danger); color: white; }
         .btn-warning { background: #ca8a04; color: white; }
         .btn-outline { background: transparent; border: 1px solid var(--border); color: var(--text); }
-        .btn-sm { width: auto; padding: 5px 10px; font-size: 0.85rem; }
+        .btn-sm { width: auto; padding: 5px 10px; font-size: 0.85rem; margin-top:0; }
+        
+        .btn-trash { background: #fee2e2; color: #dc2626; border: 1px solid #fca5a5; width: 35px; height: 35px; display: flex; align-items: center; justify-content: center; border-radius: 6px; cursor: pointer; }
 
-        #toast { visibility: hidden; min-width: 250px; background-color: #333; color: #fff; text-align: center; padding: 12px; position: fixed; bottom: 80px; left: 50%; transform: translateX(-50%); z-index: 3000; border-radius: 8px; font-weight: 500; }
+        #toast { visibility: hidden; min-width: 250px; background-color: #333; color: #fff; text-align: center; padding: 12px; position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%); z-index: 3000; border-radius: 8px; font-weight: 500; }
         #toast.show { visibility: visible; animation: fadein 0.3s, fadeout 0.3s 2.5s; }
-        @keyframes fadein { from {bottom: 60px; opacity: 0;} to {bottom: 80px; opacity: 1;} }
-        @keyframes fadeout { from {bottom: 80px; opacity: 1;} to {bottom: 60px; opacity: 0;} }
-        @keyframes flashRow{0%{background-color:#fef08a;border-left:5px solid #ca8a04;transform:scale(1.02)} 100%{background-color:var(--card);border-left:1px solid var(--border);transform:scale(1)}}
-        .row-flash{animation:flashRow 2s ease-out;z-index:50;position:relative;box-shadow:0 4px 6px rgba(0,0,0,0.1)}
+        
+        @keyframes fadein { from {bottom: 10px; opacity: 0;} to {bottom: 30px; opacity: 1;} }
+        @keyframes fadeout { from {bottom: 30px; opacity: 1;} to {bottom: 10px; opacity: 0;} }
+        
+        @keyframes flashRow { 
+            0% { background-color: #fef08a; border-left: 5px solid #ca8a04; transform: scale(1.02); } 
+            100% { background-color: var(--card); border-left: 1px solid var(--border); transform: scale(1); } 
+        }
+        .row-flash { animation: flashRow 2s ease-out; z-index: 50; position: relative; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
     </style>
 </head>
 <body>
 
 <header>
-    <h1>𝄃𝄃𝄂𝄂 WMS v4 (Inbound & Opname)</h1>
+    <h1>𝄃𝄃𝄂𝄂 WMS V5</h1>
     <button class="header-btn" onclick="toggleMenu()"><i class="fas fa-bars"></i></button>
 </header>
 
-<div class="global-filter">
-    <select id="filterLoc" onchange="handleFilterChange()">
-        <option value="">-- Pilih Lokasi --</option>
-    </select>
-    <select id="filterTech" onchange="handleFilterChange()" style="display:none;">
-        <option value="">-- Teknisi --</option>
-    </select>
+<div class="nav-tabs">
+    <button class="nav-item active" onclick="switchTab('simpan')">
+        <i class="fas fa-dolly"></i> SIMPAN
+    </button>
+    <button class="nav-item" onclick="switchTab('opname')">
+        <i class="fas fa-clipboard-check"></i> OPNAME
+    </button>
+    <button class="nav-item" onclick="switchTab('data')">
+        <i class="fas fa-search"></i> DATA
+    </button>
 </div>
 
-<div class="scanner-bar">
-    <div class="input-wrapper">
-        <input type="text" id="mainInput" class="main-input" placeholder="Scan Part / Box..." inputmode="none" autocomplete="off" onkeydown="handleInputKeyDown(event)">
-        <i class="fas fa-barcode input-icon"></i>
-    </div>
-    <div style="display:flex; justify-content:space-between; margin-top:8px; align-items:center;">
-        <small style="color:var(--secondary); font-weight:500; height:20px;" id="scanStatusText">Siap Scan...</small>
-        <div style="display:flex; gap:15px; font-size:0.8rem; align-items:center;">
-            <label id="multiScanToggle" style="display:flex; align-items:center; gap:5px; color:var(--purple); font-weight:bold;">
-                <input type="checkbox" id="chkMultiScan" onchange="toggleMultiMode()"> Multi Scan
-            </label>
-            <label style="display:flex; align-items:center; gap:5px;">
-                <input type="checkbox" id="chkManualType" onchange="toggleKeyboardMode()"> Ketik
-            </label>
-        </div>
-    </div>
-</div>
-
-<div id="tab-simpan" class="tab-content active">
-    <div id="multiScanPanel" class="multi-panel">
-        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
-            <b style="color:var(--purple);"><i class="fas fa-layer-group"></i> Buffer: <span id="multiCount">0</span> items</b>
-            <button class="btn-sm btn-danger" onclick="clearMultiBuffer()">Clear</button>
-        </div>
-        <div id="multiTagsContainer" style="max-height:100px; overflow-y:auto; padding-bottom:5px;"></div>
-        <div style="margin-top:10px; font-size:0.9rem; font-weight:bold; color:var(--purple); animation: pulse 2s infinite; text-align:center;">
-            <i class="fas fa-arrow-right"></i> SCAN BOX UNTUK PINDAH TOTAL
-        </div>
+<div class="main-content-wrapper">
+    <div class="global-filter">
+        <select id="filterLoc" onchange="handleFilterChange()">
+            <option value="">-- Pilih Lokasi --</option>
+        </select>
+        <select id="filterTech" onchange="handleFilterChange()" style="display:none;">
+            <option value="">-- Teknisi --</option>
+        </select>
     </div>
 
-    <div id="simpanStatusPanel" class="status-panel">
-        <div style="display:flex; justify-content:space-between; margin-bottom:5px;">
-            <b style="font-size:1.1rem; color:var(--primary);" id="activePartNo">-</b>
-            <button class="btn-sm btn-danger" onclick="clearActivePart()"><i class="fas fa-times"></i></button>
+    <div class="scanner-bar">
+        <div class="input-wrapper">
+            <input type="text" id="mainInput" class="main-input" placeholder="Scan Part / Box..." inputmode="none" autocomplete="off" onkeydown="handleInputKeyDown(event)">
+            <i class="fas fa-barcode input-icon"></i>
         </div>
-        <div id="activePartDesc" style="font-size:0.9rem; color:var(--secondary); margin-bottom:10px;">-</div>
-        
-        <div style="background:var(--card); padding:10px; border-radius:6px; border:1px dashed var(--primary); text-align:center;">
-            <div style="font-size:0.9rem; font-weight:bold; color:var(--primary); margin-bottom:5px;">
-                AKAN DIPINDAHKAN SEMUA STOKNYA
-            </div>
-            <div style="font-size:0.9rem; font-weight:bold; color:#16a34a; animation: pulse 2s infinite;">
-                <i class="fas fa-arrow-right"></i> SCAN BOX TUJUAN
+        <div style="display:flex; justify-content:space-between; margin-top:8px; align-items:center;">
+            <small style="color:var(--secondary); font-weight:500; height:20px;" id="scanStatusText">Siap Scan...</small>
+            <div style="display:flex; gap:15px; font-size:0.8rem; align-items:center;">
+                <label id="multiScanToggle" style="display:flex; align-items:center; gap:5px; color:var(--purple); font-weight:bold;">
+                    <input type="checkbox" id="chkMultiScan" onchange="toggleMultiMode()"> Multi Scan
+                </label>
+                <label style="display:flex; align-items:center; gap:5px;">
+                    <input type="checkbox" id="chkManualType" onchange="toggleKeyboardMode()"> Ketik
+                </label>
             </div>
         </div>
     </div>
 
-    <div id="simpanList" class="list-container"></div>
-</div>
+    <div id="tab-simpan" class="tab-content active">
+        <div id="multiScanPanel" class="multi-panel">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+                <b style="color:var(--purple);"><i class="fas fa-layer-group"></i> Buffer: <span id="multiCount">0</span> items</b>
+                <button class="btn-sm btn-danger" onclick="clearMultiBuffer()">Clear</button>
+            </div>
+            <div id="multiTagsContainer" style="max-height:100px; overflow-y:auto; padding-bottom:5px;"></div>
+            <div style="margin-top:10px; font-size:0.9rem; font-weight:bold; color:var(--purple); animation: pulse 2s infinite; text-align:center;">
+                <i class="fas fa-arrow-right"></i> SCAN BOX UNTUK SET LOKASI
+            </div>
+        </div>
 
-<div id="tab-opname" class="tab-content">
-    <div id="activeBoxPanel" class="status-panel" style="background:#f0fdf4; border-color:#86efac; display:none;">
-        <div style="display:flex; justify-content:space-between; align-items:center;">
-            <div><i class="fas fa-box-open"></i> Filter Box: <b id="activeBoxName"></b></div>
-            <button class="btn-sm btn-danger" onclick="clearOpnameBoxFilter()">Ganti Box</button>
+        <div id="simpanStatusPanel" class="status-panel">
+            <div style="display:flex; justify-content:space-between; margin-bottom:5px;">
+                <b style="font-size:1.1rem; color:var(--primary);" id="activePartNo">-</b>
+                <button class="btn-sm btn-danger" onclick="clearActivePart()"><i class="fas fa-times"></i></button>
+            </div>
+            <div id="activePartDesc" style="font-size:0.9rem; color:var(--secondary); margin-bottom:10px;">-</div>
+            
+            <div style="background:var(--card); padding:10px; border-radius:6px; border:1px dashed var(--primary); text-align:center;">
+                <div style="font-size:0.9rem; font-weight:bold; color:var(--primary); margin-bottom:5px;">
+                    AKAN DISIMPAN (QTY 0 / BELUM DIHITUNG)
+                </div>
+                <div style="font-size:0.9rem; font-weight:bold; color:#16a34a; animation: pulse 2s infinite;">
+                    <i class="fas fa-arrow-right"></i> SCAN BOX TUJUAN
+                </div>
+            </div>
         </div>
-        <div style="margin-top:5px; font-size:0.8rem; color:#166534;">
-            <i class="fas fa-bolt"></i> Mode Cepat: Scan Part untuk Auto +1
-        </div>
+
+        <div id="simpanList" class="list-container"></div>
     </div>
 
-    <div id="opnameInfoPanel" class="info-mode-panel">
-        <i class="fas fa-search" style="font-size:2rem; color:#f97316; margin-bottom:10px;"></i>
-        <h3 id="infoPartNo" style="margin:0 0 5px 0;">PART-001</h3>
-        <p id="infoPartDesc" style="color:var(--secondary); font-size:0.9rem; margin:0 0 10px 0;">Desc...</p>
-        <div style="background:white; padding:10px; border-radius:8px; margin-bottom:15px; text-align:left;">
-            <small>Lokasi saat ini:</small>
-            <div id="infoLocList" style="font-weight:bold;">-</div>
+    <div id="tab-opname" class="tab-content">
+        <div id="activeBoxPanel" class="status-panel" style="background:#f0fdf4; border-color:#86efac; display:none;">
+            <div style="display:flex; justify-content:space-between; align-items:center;">
+                <div><i class="fas fa-box-open"></i> Filter Box: <b id="activeBoxName"></b></div>
+                <button class="btn-sm btn-danger" onclick="clearOpnameBoxFilter()">Ganti Box</button>
+            </div>
+            <div style="margin-top:5px; font-size:0.8rem; color:#166534;">
+                <i class="fas fa-bolt"></i> Mode Cepat: Scan Part untuk Auto +1
+            </div>
         </div>
-        <div style="color:#c2410c; font-weight:bold; animation: pulse 1s infinite;">
-            <i class="fas fa-arrow-right"></i> SCAN BOX UNTUK MULAI HITUNG
+
+        <div id="opnameInfoPanel" class="info-mode-panel">
+            <i class="fas fa-search" style="font-size:2rem; color:#f97316; margin-bottom:10px;"></i>
+            <h3 id="infoPartNo" style="margin:0 0 5px 0;">PART-001</h3>
+            <p id="infoPartDesc" style="color:var(--secondary); font-size:0.9rem; margin:0 0 10px 0;">Desc...</p>
+            <div style="background:white; padding:10px; border-radius:8px; margin-bottom:15px; text-align:left;">
+                <small>Lokasi saat ini:</small>
+                <div id="infoLocList" style="font-weight:bold;">-</div>
+            </div>
+            <div style="color:#c2410c; font-weight:bold; animation: pulse 1s infinite;">
+                <i class="fas fa-arrow-right"></i> SCAN BOX UNTUK MULAI HITUNG
+            </div>
         </div>
+
+        <div class="segment-control">
+            <div class="segment-btn active" onclick="setOpnameFilter('all', this)">SEMUA</div>
+            <div class="segment-btn" onclick="setOpnameFilter('diff', this)">SELISIH</div>
+            <div class="segment-btn" onclick="setOpnameFilter('zero', this)">BELUM</div>
+        </div>
+
+        <div id="opnameList" class="list-container"></div>
+        <div id="opnameLoading" style="text-align:center; padding:15px; display:none; color:var(--secondary);">Load more...</div>
     </div>
 
-    <div class="segment-control">
-        <div class="segment-btn active" onclick="setOpnameFilter('all', this)">SEMUA</div>
-        <div class="segment-btn" onclick="setOpnameFilter('diff', this)">SELISIH</div>
-        <div class="segment-btn" onclick="setOpnameFilter('zero', this)">BELUM</div>
-    </div>
-
-    <div id="opnameList" class="list-container"></div>
-    <div id="opnameLoading" style="text-align:center; padding:15px; display:none; color:var(--secondary);">Load more...</div>
-</div>
-
-<div id="tab-data" class="tab-content">
-    <div class="item-card" style="margin-bottom:10px; background:#fefce8; border-color:#fef08a; cursor:default;">
-        <div style="font-size:0.85rem; color:#854d0e;">
-            <i class="fas fa-info-circle"></i> <b>Tips:</b> Scan part di tab ini untuk langsung mencari.
+    <div id="tab-data" class="tab-content">
+        <div class="item-card" style="margin-bottom:10px; background:#fefce8; border-color:#fef08a; cursor:default;">
+            <div style="font-size:0.85rem; color:#854d0e;">
+                <i class="fas fa-info-circle"></i> <b>Tips:</b> Scan part di tab ini untuk langsung mencari.
+            </div>
         </div>
+        <input type="text" id="cariInput" placeholder="Filter Teks..." onkeyup="renderDataList(true)" style="width:100%; padding:10px; border:1px solid var(--border); border-radius:6px; margin-bottom:10px;">
+        <div id="dataList" class="list-container"></div>
+        <div id="dataLoading" style="text-align:center; padding:15px; display:none; color:var(--secondary);">Load more...</div>
     </div>
-    <input type="text" id="cariInput" placeholder="Filter Teks..." onkeyup="renderDataList(true)" style="width:100%; padding:10px; border:1px solid var(--border); border-radius:6px; margin-bottom:10px;">
-    <div id="dataList" class="list-container"></div>
-    <div id="dataLoading" style="text-align:center; padding:15px; display:none; color:var(--secondary);">Load more...</div>
 </div>
 
 <div class="overlay" id="opnameConfirmModal">
@@ -257,7 +315,6 @@
                 <i class="fas fa-plus-circle"></i> TAMBAHKAN KE BOX INI
             </button>
         </div>
-        
         <button class="btn btn-outline" onclick="closeOpnameConfirmModal()">Batal</button>
     </div>
 </div>
@@ -273,18 +330,18 @@
         <div style="background:#eff6ff; padding:15px; text-align:center; border-radius:8px; margin:15px 0; border:1px solid #bfdbfe;">
             Target Baru: <b id="scmNewBox" style="color:var(--primary); font-size:1.2rem;"></b>
             <br>
-            <small>Qty Input: <b id="scmQty"></b> pcs</small>
+            <small id="scmQty">Lokasi Saja</small>
         </div>
 
         <button class="btn btn-warning" onclick="executeSimpanAction('move')">
-            <i class="fas fa-dolly"></i> PINDAHKAN SEMUA (Move Total)
+            <i class="fas fa-dolly"></i> PINDAHKAN LOKASI (Move)
         </button>
-        <div style="font-size:0.8rem; color:#666; text-align:center; margin:5px 0;">Lokasi lama akan dihapus</div>
+        <div style="font-size:0.8rem; color:#666; text-align:center; margin:5px 0;">Lokasi lama dihapus</div>
 
         <button class="btn btn-success" onclick="executeSimpanAction('split')">
-            <i class="fas fa-columns"></i> SPLIT / TAMBAH (Add Loc)
+            <i class="fas fa-columns"></i> TAMBAH LOKASI (Split)
         </button>
-        <div style="font-size:0.8rem; color:#666; text-align:center; margin:5px 0;">Stok dibagi ke dua lokasi</div>
+        <div style="font-size:0.8rem; color:#666; text-align:center; margin:5px 0;">Lokasi lama tetap ada</div>
         
         <button class="btn btn-outline" onclick="closeSimpanConflictModal()">Batal</button>
     </div>
@@ -306,7 +363,7 @@
                 <button class="btn-primary" style="width:auto; padding:8px 12px; margin:0;" onclick="addManualLoc()"><i class="fas fa-plus"></i></button>
             </div>
         </div>
-        <button class="btn btn-success" onclick="saveManualEdit()">Simpan</button>
+        <button class="btn btn-success" onclick="saveManualEdit()">Simpan Perubahan</button>
     </div>
 </div>
 
@@ -315,7 +372,7 @@
         <h2>Menu</h2>
         <button class="btn btn-outline" onclick="toggleDarkMode()">Ganti Tema</button>
         <hr>
-        <button class="btn btn-success" onclick="document.getElementById('fileInput').click()">Import Excel</button>
+        <button class="btn btn-success" onclick="document.getElementById('fileInput').click()">Import Excel (Merge)</button>
         <input type="file" id="fileInput" hidden accept=".xlsx,.csv" onchange="handleImport(this)">
         <button class="btn btn-primary" onclick="exportData()">Export Excel</button>
         <hr>
@@ -328,18 +385,6 @@
 </div>
 
 <div id="toast">Notifikasi</div>
-
-<div class="nav-tabs">
-    <button class="nav-item active" onclick="switchTab('simpan')">
-        <i class="fas fa-dolly"></i> SIMPAN
-    </button>
-    <button class="nav-item" onclick="switchTab('opname')">
-        <i class="fas fa-clipboard-check"></i> OPNAME
-    </button>
-    <button class="nav-item" onclick="switchTab('data')">
-        <i class="fas fa-search"></i> DATA
-    </button>
-</div>
 
 <script>
     // --- AUDIO & FEEDBACK ---
@@ -378,13 +423,11 @@
         const el = document.getElementById('scanStatusText');
         el.innerText = msg;
         clearTimeout(statusTimeout);
-        statusTimeout = setTimeout(() => {
-            el.innerText = "Siap Scan...";
-        }, 4000); 
+        statusTimeout = setTimeout(() => { el.innerText = "Siap Scan..."; }, 4000); 
     }
 
     // --- DB CONFIG ---
-    const DB_NAME = 'WMS_Stock_v9';
+    const DB_NAME = 'WMS_Stock_v10'; // Bump version
     let db = null;
     let localItems = [];
     let filteredItems = [];
@@ -395,14 +438,12 @@
     let activeBoxFilter = null;
     let renderLimit = 50;
     
-    // Single Scan State (Simpan & Opname Flow B)
     let tempPart = null; 
-    let opnameConflictData = null; // { item, box }
+    let opnameConflictData = null; 
+    let simpanConflictData = null;
     
-    // Multi Scan State
     let isMultiScan = false;
     let multiBuffer = []; 
-
     let editId = null;
 
     // --- INIT ---
@@ -417,7 +458,6 @@
             }
         });
 
-        // Infinite Scroll Setup
         const setupScroll = (id, callback) => {
             const el = document.getElementById(id);
             if(el) el.addEventListener('scroll', () => {
@@ -447,7 +487,6 @@
         };
     }
 
-    // --- FILTERS ---
     function populateFilters() {
         const locs = [...new Set(localItems.map(i => i.locType))].filter(Boolean).sort();
         const selLoc = document.getElementById('filterLoc');
@@ -472,7 +511,6 @@
             return m;
         });
 
-        // Reset All
         clearActivePart();
         clearMultiBuffer();
         clearOpnameBoxFilter();
@@ -482,7 +520,6 @@
         document.getElementById('mainInput').focus();
     }
 
-    // --- MAIN SCANNER LOGIC ---
     function handleInputKeyDown(e) {
         if(e.key === 'Enter') {
             const val = e.target.value; 
@@ -526,7 +563,6 @@
     }
 
     function processScan(code) {
-        // --- CLEAN QR ---
         if(code.includes('|')) code = code.split('|')[0];
         code = code.trim().toUpperCase();
 
@@ -534,35 +570,22 @@
         const boxPattern = /^[A-Z][0-9]-[0-9]{2}$/;
         const isBox = boxPattern.test(code);
 
-        // ==========================
-        // TAB 1: SIMPAN (INBOUND)
-        // ==========================
+        // === SIMPAN ===
         if (currentTab === 'simpan') {
             if (item) {
-                // IT IS A PART
                 feedback('scan');
-                if (isMultiScan) {
-                    addToMultiBuffer(item);
-                } else {
-                    selectPartSimpan(item);
-                    setStatus(`Part: ${item.partNo}`);
-                }
+                if (isMultiScan) addToMultiBuffer(item);
+                else { selectPartSimpan(item); setStatus(`Part: ${item.partNo}`); }
             } else {
-                // BOX OR NEW PART
                 if (isBox) {
-                    // ACTION: SCAN BOX TRIGGER
                     if (isMultiScan) {
-                        // Multi Mode: Langsung pindah total (Batch)
                         if (multiBuffer.length > 0) processMultiBatchMove(code);
                         else { feedback('error'); setStatus("Buffer Kosong!"); }
                     } else {
-                        // Single Mode: Cek Konflik (Move vs Split)
-                        // UPDATE: Menggunakan checkSimpanConflict, bukan executeMoveTotal langsung
                         if (tempPart) checkSimpanConflict(tempPart, code);
                         else { feedback('error'); showToast("Scan Part Dulu!"); }
                     }
                 } else {
-                    // NEW PART CREATION
                     if(confirm(`Kode "${code}" Baru. Buat Part?`)) {
                         const newItem = createNewItem(code);
                         if(isMultiScan) addToMultiBuffer(newItem);
@@ -573,34 +596,24 @@
             return;
         }
 
-        // ==========================
-        // TAB 2: OPNAME (STOCK TAKE)
-        // ==========================
+        // === OPNAME ===
         if (currentTab === 'opname') {
             if (activeBoxFilter) {
-                // --- KONDISI A: BOX SUDAH TERPILIH ---
-                if (isBox) {
-                    // Scan box lagi -> Ganti Box
-                    feedback('scan'); setOpnameBoxFilter(code); return;
-                }
+                if (isBox) { feedback('scan'); setOpnameBoxFilter(code); return; }
 
                 if (item) {
-                    // Part ditemukan di DB
                     const currentQty = item.locations[activeBoxFilter];
                     if (currentQty !== undefined) {
-                        // SUDAH ADA DI BOX: AUTO INCREMENT
                         item.locations[activeBoxFilter]++;
                         saveDB(item);
                         feedback('success');
                         showToast(`${item.partNo}: Qty +1`);
-                        handleOpnameRender(); // Refresh view
+                        handleOpnameRender();
                     } else {
-                        // BELUM ADA DI BOX INI -> CEK KONFLIK
                         feedback('scan');
                         promptOpnameConflict(item, activeBoxFilter);
                     }
                 } else {
-                    // Part Baru / Tidak di DB
                       if(confirm(`Kode "${code}" Baru. Tambah ke Box ini?`)) {
                         const newItem = createNewItem(code);
                         newItem.locations[activeBoxFilter] = 1;
@@ -609,26 +622,15 @@
                         handleOpnameRender();
                     }
                 }
-
             } else {
-                // --- KONDISI B: BELUM PILIH BOX ---
-                if (isBox) {
-                    feedback('scan'); setOpnameBoxFilter(code);
-                } else if (item) {
-                    // Tampilkan Mode Info
-                    feedback('scan');
-                    showOpnameInfo(item);
-                } else {
-                    feedback('error');
-                    setStatus("Scan Box untuk mulai!");
-                }
+                if (isBox) { feedback('scan'); setOpnameBoxFilter(code); }
+                else if (item) { feedback('scan'); showOpnameInfo(item); }
+                else { feedback('error'); setStatus("Scan Box untuk mulai!"); }
             }
             return;
         }
 
-        // ==========================
-        // TAB 3: DATA
-        // ==========================
+        // === DATA ===
         if (item) {
             feedback('scan');
             jumpToItem(item.partNo);
@@ -638,84 +640,48 @@
         }
     }
 
-    // --- LOGIC SIMPAN (MOVE TOTAL) ---
-    function executeMoveTotal(item, box) {
-        // Pindahkan Total System Qty ke Box Baru
-        // Kosongkan lokasi lama, set lokasi baru = sysQty (atau 1 jika 0)
-        let qtyToSet = item.sysQty > 0 ? item.sysQty : 1;
-        
-        item.locations = {}; // Reset lokasi lama
-        item.locations[box] = qtyToSet; // Set lokasi baru
-        
-        saveDB(item);
-        feedback('success');
-        showToast(`${item.partNo} Pindah ke ${box}`);
-        clearActivePart();
-    }
-
-    // --- LOGIC SIMPAN BARU (MOVE VS SPLIT) ---
-
-    let simpanConflictData = null;
-
+    // --- LOGIC SIMPAN (LOCATION ONLY, QTY 0) ---
     function checkSimpanConflict(item, newBox) {
         const existingLocs = Object.keys(item.locations);
         
-        // PERBAIKAN DISINI:
-        // Karena input qty di UI sudah dihapus (mode move total),
-        // kita anggap qty yang akan dipindah adalah seluruh stok sistem.
-        // Jika stok sistem 0 (part baru), default ke 1.
-        const inputQty = item.sysQty > 0 ? item.sysQty : 1; 
-
-        // 1. Jika belum punya lokasi -> Langsung Simpan
+        // 1. Jika belum punya lokasi -> Simpan Lokasi (Qty 0)
         if (existingLocs.length === 0) {
-            item.locations[newBox] = inputQty; 
+            item.locations[newBox] = 0; 
             saveDB(item);
             feedback('success');
-            showToast(`Disimpan ke ${newBox}`);
+            showToast(`Lokasi diset: ${newBox}`);
             clearActivePart();
             return;
         }
 
-        // 2. Jika lokasi sama -> Abaikan (Karena ini mode Move Total, tidak perlu tambah qty jika box sama)
-        // Atau jika ingin menambah, bisa diaktifkan logic add-nya. 
-        // Di sini saya buat update qty saja untuk memastikan sinkron.
+        // 2. Jika lokasi sama -> Abaikan
         if (existingLocs.includes(newBox)) {
-            item.locations[newBox] = inputQty; // Reset ke total sysQty
-            saveDB(item);
-            feedback('success');
-            showToast(`Stok diupdate di ${newBox}`);
+            showToast(`Part sudah ada di ${newBox}`);
             clearActivePart();
             return;
         }
 
-        // 3. Jika lokasi beda -> KONFLIK (Move or Split)
-        feedback('error'); // Alert sound
-        simpanConflictData = { item, newBox, qty: inputQty };
+        // 3. Jika lokasi beda -> KONFLIK
+        feedback('error');
+        simpanConflictData = { item, newBox }; 
         
         document.getElementById('simpanConflictModal').style.display = 'flex';
         document.getElementById('scmPart').innerText = item.partNo;
         document.getElementById('scmOldLoc').innerText = existingLocs.join(', ');
         document.getElementById('scmNewBox').innerText = newBox;
-        document.getElementById('scmQty').innerText = inputQty;
     }
 
     function executeSimpanAction(action) {
         if(!simpanConflictData) return;
-        const { item, newBox, qty } = simpanConflictData;
+        const { item, newBox } = simpanConflictData;
 
         if (action === 'move') {
-            // Hapus lokasi lama, pindah total ke baru
-            // Kita asumsikan SysQty pindah semua, atau minimal qty input
-            let qtyToMove = item.sysQty > 0 ? item.sysQty : qty;
             item.locations = {}; 
-            item.locations[newBox] = qtyToMove;
-            showToast(`Pindah Total ke ${newBox}`);
+            item.locations[newBox] = 0;
+            showToast(`Pindah Lokasi ke ${newBox}`);
         } else if (action === 'split') {
-            // Pertahankan lokasi lama, tambah lokasi baru
-            // Kurangi stok lama? Atau sekedar tambah lokasi?
-            // Asumsi simpel: Tambah lokasi baru dengan Qty Input.
-            item.locations[newBox] = (item.locations[newBox] || 0) + qty;
-            showToast(`Split: Ditambah ke ${newBox}`);
+            item.locations[newBox] = 0; 
+            showToast(`Tambah Lokasi: ${newBox}`);
         }
 
         saveDB(item);
@@ -731,14 +697,32 @@
 
     function processMultiBatchMove(box) {
         multiBuffer.forEach(item => {
-            let qtyToSet = item.sysQty > 0 ? item.sysQty : 1;
             item.locations = {}; 
-            item.locations[box] = qtyToSet;
+            item.locations[box] = 0; 
             saveDB(item);
         });
         feedback('success');
-        showToast(`${multiBuffer.length} Item Pindah ke ${box}`);
+        showToast(`${multiBuffer.length} Item Lokasi diset ke ${box}`);
         clearMultiBuffer();
+    }
+
+    function addToMultiBuffer(item) {
+        // CEK DUPLIKAT
+        const exists = multiBuffer.some(i => i.partNo === item.partNo);
+        if (exists) {
+            showToast("Part sudah ada di list!");
+            return; 
+        }
+
+        multiBuffer.push(item);
+        const container = document.getElementById('multiTagsContainer');
+        const tag = document.createElement('span');
+        tag.className = 'multi-tag';
+        tag.innerText = item.partNo;
+        container.prepend(tag);
+        document.getElementById('multiCount').innerText = multiBuffer.length;
+        const row = document.getElementById(`simpan-row-${item.id}`);
+        if(row) row.classList.add('selected');
     }
 
     function createNewItem(code) {
@@ -761,15 +745,13 @@
         document.getElementById('opnameTargetBox').innerText = box;
         
         if (existingLocs.length > 0) {
-            // Case: Ada di tempat lain
             document.getElementById('opnameModalTitle').innerText = "Konflik Lokasi";
-            document.getElementById('opnameModalDesc').innerText = `Part ini tercatat ada di: ${existingLocs.join(', ')}`;
+            document.getElementById('opnameModalDesc').innerText = `Tercatat di: ${existingLocs.join(', ')}`;
             document.getElementById('btnGroupConflict').style.display = 'block';
             document.getElementById('btnGroupNew').style.display = 'none';
         } else {
-            // Case: Tidak ada lokasi (Stok 0 tapi part ada di DB)
             document.getElementById('opnameModalTitle').innerText = "Stok Kosong";
-            document.getElementById('opnameModalDesc').innerText = "Part ada di database tapi belum punya lokasi.";
+            document.getElementById('opnameModalDesc').innerText = "Belum punya lokasi.";
             document.getElementById('btnGroupConflict').style.display = 'none';
             document.getElementById('btnGroupNew').style.display = 'block';
         }
@@ -778,11 +760,9 @@
     function executeOpnameAction(action) {
         const { item, box } = opnameConflictData;
         if (action === 'move') {
-            // Pindah: Hapus lokasi lama, set lokasi baru = 1
             item.locations = {};
             item.locations[box] = 1;
         } else if (action === 'add') {
-            // Split/Add: Biarkan lokasi lama, tambah lokasi baru = 1
             item.locations[box] = 1;
         }
         saveDB(item);
@@ -797,13 +777,13 @@
     }
 
     function showOpnameInfo(item) {
-        tempPart = item; // reuse tempPart for display
+        tempPart = item; 
         document.getElementById('opnameInfoPanel').style.display = 'block';
         document.getElementById('infoPartNo').innerText = item.partNo;
         document.getElementById('infoPartDesc').innerText = item.desc;
         const locs = Object.entries(item.locations).map(([k,v])=>`${k} (${v})`).join(', ');
         document.getElementById('infoLocList').innerText = locs || "Belum ada lokasi";
-        document.getElementById('opnameList').style.display = 'none'; // Hide list temporarily
+        document.getElementById('opnameList').style.display = 'none'; 
     }
 
     // --- RENDER UTILS ---
@@ -835,36 +815,23 @@
     }
 
     function selectPartSimpan(item) {
-    if(isMultiScan) return;
-    tempPart = item;
-    document.getElementById('simpanStatusPanel').style.display = 'block';
-    document.getElementById('activePartNo').innerText = item.partNo;
-    document.getElementById('activePartDesc').innerText = item.desc;
-    
-    // Reset seleksi lama
-    document.querySelectorAll('.item-card').forEach(el => {
-        el.classList.remove('selected');
-        el.classList.remove('row-flash'); // Hapus flash lama
-    });
+        if(isMultiScan) return;
+        tempPart = item;
+        document.getElementById('simpanStatusPanel').style.display = 'block';
+        document.getElementById('activePartNo').innerText = item.partNo;
+        document.getElementById('activePartDesc').innerText = item.desc;
+        
+        document.querySelectorAll('.item-card').forEach(el => {
+            el.classList.remove('selected');
+            el.classList.remove('row-flash'); 
+        });
 
-    const row = document.getElementById(`simpan-row-${item.id}`);
-    if(row) {
-        row.classList.add('selected');
-        row.classList.add('row-flash'); // Tambah Highlight
-        row.scrollIntoView({behavior:'smooth', block:'center'});
-    }
-}
-
-    function addToMultiBuffer(item) {
-        multiBuffer.push(item);
-        const container = document.getElementById('multiTagsContainer');
-        const tag = document.createElement('span');
-        tag.className = 'multi-tag';
-        tag.innerText = item.partNo;
-        container.prepend(tag);
-        document.getElementById('multiCount').innerText = multiBuffer.length;
         const row = document.getElementById(`simpan-row-${item.id}`);
-        if(row) row.classList.add('selected');
+        if(row) {
+            row.classList.add('selected');
+            row.classList.add('row-flash'); 
+            row.scrollIntoView({behavior:'smooth', block:'center'});
+        }
     }
 
     function clearActivePart() {
@@ -884,8 +851,8 @@
         activeBoxFilter = box;
         document.getElementById('activeBoxName').innerText = box;
         document.getElementById('activeBoxPanel').style.display = 'block';
-        document.getElementById('opnameInfoPanel').style.display = 'none'; // Hide info panel
-        document.getElementById('opnameList').style.display = 'flex'; // Show list
+        document.getElementById('opnameInfoPanel').style.display = 'none'; 
+        document.getElementById('opnameList').style.display = 'flex'; 
         handleOpnameRender();
     }
     
@@ -910,7 +877,7 @@
         if(filteredItems.length === 0) return;
 
         let dataset = filteredItems;
-        if(activeBoxFilter) dataset = dataset.filter(i => i.locations[activeBoxFilter]);
+        if(activeBoxFilter) dataset = dataset.filter(i => i.locations[activeBoxFilter] !== undefined); // Pastikan key ada
 
         dataset = dataset.filter(i => {
             const total = Object.values(i.locations).reduce((a,b)=>a+b,0);
@@ -921,22 +888,37 @@
 
         const show = dataset.slice(0, renderLimit);
         show.forEach(i => {
-            const total = Object.values(i.locations).reduce((a,b)=>a+b,0);
-            let badge = total===i.sysQty ? 'qty-match' : (total===0 ? 'qty-zero' : 'qty-diff');
+            // Logic Display Qty
+            const qtyInBox = activeBoxFilter ? i.locations[activeBoxFilter] : 0;
+            let badgeClass = '';
+            let qtyDisplay = '';
+
+            if (qtyInBox === 0) {
+                badgeClass = 'qty-uncounted';
+                qtyDisplay = '0 (Uncounted)';
+            } else {
+                badgeClass = (qtyInBox === i.sysQty) ? 'qty-match' : 'qty-diff';
+                qtyDisplay = `${qtyInBox} / ${i.sysQty}`;
+            }
+
             let locStr = activeBoxFilter 
-                ? `Box ${activeBoxFilter}: <b>${i.locations[activeBoxFilter]}</b>` 
+                ? `Box ${activeBoxFilter}` 
                 : Object.entries(i.locations).map(([k,v])=>`${k}(${v})`).join(', ');
 
             const div = document.createElement('div');
             div.className = 'item-card';
-            div.onclick = () => openEditModal(i.id);
+            
+            // Layout Row: Info | Qty Badge | Trash
             div.innerHTML = `
-                <div style="flex:1">
+                <div style="flex:1" onclick="openEditModal(${i.id})">
                     <span class="part-code">${i.partNo}</span>
                     <span class="part-desc">${i.desc}</span>
-                    <div style="margin-top:4px; font-size:0.75rem; color:var(--opname);"><i class="fas fa-map-marker-alt"></i> ${locStr || '-'}</div>
+                    <div style="margin-top:4px; font-size:0.75rem; color:var(--opname);"><i class="fas fa-map-marker-alt"></i> ${locStr}</div>
                 </div>
-                <div class="qty-badge ${badge}">${total} / ${i.sysQty}</div>`;
+                <div style="display:flex; gap:8px; align-items:center;">
+                    <div class="qty-badge ${badgeClass}" onclick="openEditModal(${i.id})">${qtyDisplay}</div>
+                    ${activeBoxFilter ? `<div class="btn-trash" onclick="deleteLocation(${i.id}, '${activeBoxFilter}')"><i class="fas fa-trash"></i></div>` : ''}
+                </div>`;
             container.appendChild(div);
         });
         document.getElementById('opnameLoading').style.display = (renderLimit < dataset.length) ? 'block' : 'none';
@@ -979,29 +961,29 @@
     }
 
     function jumpToItem(partNo) {
-    const index = filteredItems.findIndex(i => i.partNo.toUpperCase() === partNo.toUpperCase());
-    if (index === -1) {
-        feedback('error');
-        showToast("Part tidak ditemukan di filter ini");
-        return;
-    }
-    const item = filteredItems[index];
-    document.getElementById('cariInput').value = ''; 
-    if (index >= renderLimit) renderLimit = index + 20;
-    renderDataList(false); 
-    
-    setTimeout(() => {
-        const row = document.getElementById(`data-row-${item.id}`);
-        if (row) {
-            document.querySelectorAll('.item-card').forEach(el => el.classList.remove('row-flash')); // Reset
-            row.scrollIntoView({ behavior: 'smooth', block: 'center' });
-            row.classList.add('row-flash'); // Tambah Highlight
-            playTone(800, 'sine', 0.1);
+        const index = filteredItems.findIndex(i => i.partNo.toUpperCase() === partNo.toUpperCase());
+        if (index === -1) {
+            feedback('error');
+            showToast("Part tidak ditemukan di filter ini");
+            return;
         }
-    }, 100);
-}
+        const item = filteredItems[index];
+        document.getElementById('cariInput').value = ''; 
+        if (index >= renderLimit) renderLimit = index + 20;
+        renderDataList(false); 
+        
+        setTimeout(() => {
+            const row = document.getElementById(`data-row-${item.id}`);
+            if (row) {
+                document.querySelectorAll('.item-card').forEach(el => el.classList.remove('row-flash'));
+                row.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                row.classList.add('row-flash'); 
+                playTone(800, 'sine', 0.1);
+            }
+        }, 100);
+    }
 
-    // --- SHARED UTILS ---
+    // --- SHARED UTILS (EDIT / DELETE) ---
     function openEditModal(id) {
         editId = id;
         const item = localItems.find(i=>i.id===id);
@@ -1012,32 +994,48 @@
         list.innerHTML='';
         Object.keys(item.locations).forEach(box => {
             const r = document.createElement('div');
-            r.style.cssText="display:flex; justify-content:space-between; margin-bottom:8px;";
-            r.innerHTML=`<b>${box}</b> <div style="display:flex; gap:5px;"><input type="number" class="edit-qty-input" data-box="${box}" value="${item.locations[box]}" style="width:50px;"><button class="btn-sm btn-danger" onclick="delLoc('${box}')">X</button></div>`;
+            r.style.cssText="display:flex; justify-content:space-between; margin-bottom:8px; align-items:center;";
+            r.innerHTML=`
+                <b>${box}</b> 
+                <div style="display:flex; gap:5px;">
+                    <input type="number" class="edit-qty-input" data-box="${box}" value="${item.locations[box]}" style="width:60px; padding:5px;">
+                    <button class="btn-trash" style="width:30px; height:30px;" onclick="deleteLocation(${id}, '${box}')"><i class="fas fa-trash"></i></button>
+                </div>`;
             list.appendChild(r);
         });
+    }
+
+    function deleteLocation(id, box) {
+        if(confirm(`Hapus part ini dari box ${box}?`)) {
+            const item = localItems.find(i=>i.id===id);
+            if (item) {
+                delete item.locations[box];
+                saveDB(item);
+                feedback('success');
+                // Refresh views
+                if(document.getElementById('editModal').style.display === 'flex') openEditModal(id);
+                if(currentTab === 'opname') handleOpnameRender();
+                if(currentTab === 'data') renderDataList(false);
+            }
+        }
     }
 
     function addManualLoc() {
         const box = document.getElementById('editNewBox').value.toUpperCase();
         const qty = parseInt(document.getElementById('editNewQty').value);
-        if(box && qty) {
+        if(box && qty !== isNaN) {
             const item = localItems.find(i=>i.id===editId);
-            item.locations[box] = qty;
+            item.locations[box] = qty || 0; // Allow 0
             saveDB(item); openEditModal(editId);
         }
     }
-    function delLoc(box) {
-        if(confirm('Hapus?')) {
-            const item = localItems.find(i=>i.id===editId);
-            delete item.locations[box]; saveDB(item); openEditModal(editId);
-        }
-    }
+
     function saveManualEdit() {
         const item = localItems.find(i=>i.id===editId);
         document.querySelectorAll('.edit-qty-input').forEach(inp => {
             const v = parseInt(inp.value);
-            if(v>0) item.locations[inp.dataset.box]=v; else delete item.locations[inp.dataset.box];
+            // Don't delete if 0, just update. Only delete via trash button.
+            if(!isNaN(v)) item.locations[inp.dataset.box]=v; 
         });
         saveDB(item); document.getElementById('editModal').style.display='none'; 
         handleOpnameRender(); renderDataList(false);
@@ -1079,25 +1077,56 @@
     function toggleMenu() { const e=document.getElementById('menuModal'); e.style.display=e.style.display==='flex'?'none':'flex'; }
     function toggleDarkMode() { document.body.classList.toggle('dark-mode'); localStorage.setItem('darkMode', document.body.classList.contains('dark-mode')); }
     
+    // --- IMPORT MERGE LOGIC ---
     function handleImport(input) {
-        const f=input.files[0]; if(!f)return;
-        const r=new FileReader();
-        r.onload=e=>{
-            const wb=XLSX.read(e.target.result,{type:'array'});
-            const json=XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{defval:''});
-            const tx=db.transaction('items','readwrite');
-            const st=tx.objectStore('items'); st.clear();
-            json.forEach((row,i)=>{
+        const f = input.files[0]; if(!f) return;
+        const r = new FileReader();
+        r.onload = async e => {
+            const wb = XLSX.read(e.target.result, {type:'array'});
+            const json = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], {defval:''});
+            
+            // 1. Ambil data lama (Backup Locations)
+            const txRead = db.transaction('items', 'readonly');
+            const oldItems = await new Promise(resolve => {
+                txRead.objectStore('items').getAll().onsuccess = ev => resolve(ev.target.result || []);
+            });
+
+            const locationMap = {};
+            oldItems.forEach(item => {
+                if(Object.keys(item.locations).length > 0) {
+                    locationMap[item.partNo] = item.locations;
+                }
+            });
+
+            // 2. Clear & Rewrite (Merge)
+            const tx = db.transaction('items', 'readwrite');
+            const st = tx.objectStore('items'); 
+            st.clear(); 
+
+            json.forEach((row, i) => {
+                const pNo = String(row['Part']||row['Nomor Gudang']||'').trim();
+                const savedLocs = locationMap[pNo] || {};
+
                 st.add({
-                    id:i+1, locType:row['Tipe Lokasi']||'UMUM', techName:row['Nama']||'',
-                    partNo:String(row['Part']||row['Nomor Gudang']||'').trim(),
-                    desc:row['Deskripsi Part']||'', sysQty:parseInt(row['Available QTY']||0),
-                    locations:{}, raw:row
+                    id: i + 1, 
+                    locType: row['Tipe Lokasi']||'UMUM', 
+                    techName: row['Nama']||'',
+                    partNo: pNo,
+                    desc: row['Deskripsi Part']||'', 
+                    sysQty: parseInt(row['Available QTY']||0),
+                    locations: savedLocs, 
+                    raw: row
                 });
             });
-            tx.oncomplete=()=>location.reload();
-        }; r.readAsArrayBuffer(f);
+
+            tx.oncomplete = () => {
+                alert("Import Berhasil! Lokasi lama aman.");
+                location.reload();
+            };
+        }; 
+        r.readAsArrayBuffer(f);
     }
+
     function exportData() {
         const data=localItems.map(i=>{
             let r={...i.raw};
