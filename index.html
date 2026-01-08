@@ -204,9 +204,11 @@
         <div style="display:flex; justify-content:space-between; margin-top:8px; align-items:center;">
             <small style="color:var(--secondary); font-weight:500; height:20px;" id="scanStatusText">Siap Scan...</small>
             <div style="display:flex; gap:15px; font-size:0.8rem; align-items:center;">
+                
                 <label id="multiScanToggle" style="display:flex; align-items:center; gap:5px; color:var(--purple); font-weight:bold;">
                     <input type="checkbox" id="chkMultiScan" onchange="toggleMultiMode()"> Multi Scan
                 </label>
+
                 <label style="display:flex; align-items:center; gap:5px;">
                     <input type="checkbox" id="chkManualType" onchange="toggleKeyboardMode()"> Ketik
                 </label>
@@ -233,6 +235,10 @@
             </div>
             <div id="activePartDesc" style="font-size:0.9rem; color:var(--secondary); margin-bottom:10px;">-</div>
             
+            <div style="background:#fff; padding:8px; margin-bottom:10px; border-radius:6px; border:1px solid #bfdbfe; font-size:0.9rem;">
+                Lokasi Saat Ini: <b id="activePartLoc" style="color:var(--danger)">-</b>
+            </div>
+
             <div style="background:var(--card); padding:10px; border-radius:6px; border:1px dashed var(--primary); text-align:center;">
                 <div style="font-size:0.9rem; font-weight:bold; color:var(--primary); margin-bottom:5px;">
                     AKAN DISIMPAN (QTY 0 / BELUM DIHITUNG)
@@ -718,7 +724,11 @@
         const container = document.getElementById('multiTagsContainer');
         const tag = document.createElement('span');
         tag.className = 'multi-tag';
-        tag.innerText = item.partNo;
+        
+        // UPDATE POIN 2: Menampilkan Lokasi Asal di Tag Buffer
+        const locInfo = Object.keys(item.locations).join(',') || 'Baru';
+        tag.innerText = `${item.partNo} (Loc: ${locInfo})`;
+        
         container.prepend(tag);
         document.getElementById('multiCount').innerText = multiBuffer.length;
         const row = document.getElementById(`simpan-row-${item.id}`);
@@ -821,6 +831,10 @@
         document.getElementById('activePartNo').innerText = item.partNo;
         document.getElementById('activePartDesc').innerText = item.desc;
         
+        // UPDATE POIN 1: Render lokasi saat ini ke panel
+        const locInfo = Object.keys(item.locations).join(', ') || 'Belum ada';
+        document.getElementById('activePartLoc').innerText = locInfo;
+
         document.querySelectorAll('.item-card').forEach(el => {
             el.classList.remove('selected');
             el.classList.remove('row-flash'); 
@@ -1053,6 +1067,14 @@
         document.querySelectorAll('.nav-item').forEach(e=>e.classList.remove('active'));
         event.currentTarget.classList.add('active');
         
+        // UPDATE POIN 3: Hilangkan Checkbox Multi Scan di tab lain
+        const multiToggle = document.getElementById('multiScanToggle');
+        if (id === 'simpan') {
+            multiToggle.style.display = 'flex';
+        } else {
+            multiToggle.style.display = 'none';
+        }
+
         const root = document.documentElement;
         if(id === 'simpan') {
             const isMulti = document.getElementById('chkMultiScan').checked;
