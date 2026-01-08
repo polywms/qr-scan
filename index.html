@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Warehouse Management System v3</title>
+    <title>WMS: Inbound & Opname V4</title>
     <script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     
@@ -43,7 +43,7 @@
         .global-filter { background: var(--card); padding: 8px 15px; border-bottom: 1px solid var(--border); display: flex; gap: 10px; z-index: 90; }
         select { width: 100%; padding: 10px; border-radius: 6px; border: 1px solid var(--border); background: var(--bg); color: var(--text); font-weight: 500; font-size: 0.9rem; }
 
-        /* SCANNER BAR (Context Aware) */
+        /* SCANNER BAR */
         .scanner-bar { background: var(--card); padding: 10px 15px; border-bottom: 3px solid var(--active-color); position: sticky; top: 0; z-index: 100; box-shadow: 0 2px 4px rgba(0,0,0,0.03); transition: border-color 0.3s; }
         .input-wrapper { position: relative; display: flex; gap: 8px; }
         .main-input { 
@@ -60,14 +60,6 @@
         @keyframes flashError { 0% { background-color: rgba(220, 38, 38, 0.3); } 100% { background-color: transparent; } }
         .flash-success { animation: flashSuccess 0.5s ease-out; }
         .flash-error { animation: flashError 0.5s ease-out; }
-
-        /* HIGHLIGHT ROW ANIMATION (Data Tab) */
-        @keyframes highlightPulse {
-            0% { background-color: #fef08a; transform: scale(1.02); border-left: 5px solid #ca8a04; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
-            50% { background-color: #fef9c3; transform: scale(1); }
-            100% { background-color: var(--card); border-left: 1px solid var(--border); box-shadow: none; }
-        }
-        .highlight-row { animation: highlightPulse 2.5s ease-out; z-index: 10; position: relative; }
 
         /* CONTENT AREA */
         .tab-content { flex: 1; overflow-y: auto; padding: 15px; display: none; }
@@ -93,19 +85,18 @@
         .qty-diff { background: #fee2e2; color: #991b1b; }
         .qty-zero { background: #f1f5f9; color: #64748b; }
 
-        /* SEGMENTED TABS (Opname) */
+        /* SEGMENTED TABS */
         .segment-control { display: flex; width: 100%; background: var(--card); border-bottom: 1px solid var(--border); margin-bottom: 10px; }
         .segment-btn { flex: 1; text-align: center; padding: 12px 5px; border-bottom: 3px solid transparent; color: var(--secondary); font-weight: 600; font-size: 0.85rem; cursor: pointer; text-transform: uppercase; }
         .segment-btn.active { border-bottom-color: var(--opname); color: var(--opname); background: #f0fdf4; }
 
-        /* STATUS PANEL */
-        .status-panel { background: #eff6ff; border: 1px solid #bfdbfe; padding: 15px; border-radius: 8px; margin-bottom: 15px; display: none; animation: slideDown 0.2s; }
-        @keyframes slideDown { from {opacity:0; transform:translateY(-10px);} to {opacity:1; transform:translateY(0);} }
-
-        /* MULTI SCAN PANEL */
+        /* PANELS */
+        .status-panel { background: #eff6ff; border: 1px solid #bfdbfe; padding: 15px; border-radius: 8px; margin-bottom: 15px; display: none; }
         .multi-panel { background: #f3e8ff; border: 1px solid #d8b4fe; padding: 10px; border-radius: 8px; margin-bottom: 15px; display: none; }
-        .multi-tag { background: #a855f7; color: white; padding: 4px 10px; border-radius: 20px; font-size: 0.75rem; margin-right: 5px; margin-bottom: 5px; display: inline-block; animation: popIn 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
-        @keyframes popIn { from {transform: scale(0);} to {transform: scale(1);} }
+        .multi-tag { background: #a855f7; color: white; padding: 4px 10px; border-radius: 20px; font-size: 0.75rem; margin-right: 5px; margin-bottom: 5px; display: inline-block; }
+        
+        /* INFO MODE PANEL (Opname Flow B) */
+        .info-mode-panel { background: #fff7ed; border: 2px dashed #f97316; padding: 20px; border-radius: 12px; text-align: center; margin-bottom: 20px; display:none; }
 
         /* NAV TABS */
         .nav-tabs { position: fixed; bottom: 0; left: 0; width: 100%; background: var(--card); border-top: 1px solid var(--border); display: flex; height: 60px; z-index: 1000; box-shadow: 0 -2px 10px rgba(0,0,0,0.05); }
@@ -120,7 +111,6 @@
         .btn-primary { background: var(--primary); color: white; }
         .btn-success { background: var(--opname); color: white; }
         .btn-danger { background: var(--danger); color: white; }
-        .btn-purple { background: var(--purple); color: white; }
         .btn-warning { background: #ca8a04; color: white; }
         .btn-outline { background: transparent; border: 1px solid var(--border); color: var(--text); }
         .btn-sm { width: auto; padding: 5px 10px; font-size: 0.85rem; }
@@ -134,7 +124,7 @@
 <body>
 
 <header>
-    <h1>𝄃𝄃𝄂𝄂 WMS for QR Scanner</h1>
+    <h1>𝄃𝄃𝄂𝄂 WMS v4 (Inbound & Opname)</h1>
     <button class="header-btn" onclick="toggleMenu()"><i class="fas fa-bars"></i></button>
 </header>
 
@@ -173,7 +163,7 @@
         </div>
         <div id="multiTagsContainer" style="max-height:100px; overflow-y:auto; padding-bottom:5px;"></div>
         <div style="margin-top:10px; font-size:0.9rem; font-weight:bold; color:var(--purple); animation: pulse 2s infinite; text-align:center;">
-            <i class="fas fa-arrow-right"></i> SCAN BOX UNTUK MENYIMPAN SEMUA
+            <i class="fas fa-arrow-right"></i> SCAN BOX UNTUK PINDAH TOTAL
         </div>
     </div>
 
@@ -184,10 +174,9 @@
         </div>
         <div id="activePartDesc" style="font-size:0.9rem; color:var(--secondary); margin-bottom:10px;">-</div>
         
-        <div style="background:var(--card); padding:10px; border-radius:6px; border:1px dashed var(--primary); display:flex; align-items:center; justify-content:space-between;">
-            <div>
-                <span style="font-size:0.8rem; font-weight:bold; color:var(--primary);">QTY:</span>
-                <input type="number" id="simpanQty" value="1" min="1" style="width:60px; text-align:center; border:1px solid var(--border); border-radius:4px; font-weight:bold; font-size:1rem;">
+        <div style="background:var(--card); padding:10px; border-radius:6px; border:1px dashed var(--primary); text-align:center;">
+            <div style="font-size:0.9rem; font-weight:bold; color:var(--primary); margin-bottom:5px;">
+                AKAN DIPINDAHKAN SEMUA STOKNYA
             </div>
             <div style="font-size:0.9rem; font-weight:bold; color:#16a34a; animation: pulse 2s infinite;">
                 <i class="fas fa-arrow-right"></i> SCAN BOX TUJUAN
@@ -202,7 +191,23 @@
     <div id="activeBoxPanel" class="status-panel" style="background:#f0fdf4; border-color:#86efac; display:none;">
         <div style="display:flex; justify-content:space-between; align-items:center;">
             <div><i class="fas fa-box-open"></i> Filter Box: <b id="activeBoxName"></b></div>
-            <button class="btn-sm btn-danger" onclick="clearOpnameBoxFilter()">Reset</button>
+            <button class="btn-sm btn-danger" onclick="clearOpnameBoxFilter()">Ganti Box</button>
+        </div>
+        <div style="margin-top:5px; font-size:0.8rem; color:#166534;">
+            <i class="fas fa-bolt"></i> Mode Cepat: Scan Part untuk Auto +1
+        </div>
+    </div>
+
+    <div id="opnameInfoPanel" class="info-mode-panel">
+        <i class="fas fa-search" style="font-size:2rem; color:#f97316; margin-bottom:10px;"></i>
+        <h3 id="infoPartNo" style="margin:0 0 5px 0;">PART-001</h3>
+        <p id="infoPartDesc" style="color:var(--secondary); font-size:0.9rem; margin:0 0 10px 0;">Desc...</p>
+        <div style="background:white; padding:10px; border-radius:8px; margin-bottom:15px; text-align:left;">
+            <small>Lokasi saat ini:</small>
+            <div id="infoLocList" style="font-weight:bold;">-</div>
+        </div>
+        <div style="color:#c2410c; font-weight:bold; animation: pulse 1s infinite;">
+            <i class="fas fa-arrow-right"></i> SCAN BOX UNTUK MULAI HITUNG
         </div>
     </div>
 
@@ -219,39 +224,39 @@
 <div id="tab-data" class="tab-content">
     <div class="item-card" style="margin-bottom:10px; background:#fefce8; border-color:#fef08a; cursor:default;">
         <div style="font-size:0.85rem; color:#854d0e;">
-            <i class="fas fa-info-circle"></i> <b>Tips:</b> Scan part di tab ini untuk langsung mencari dan scroll otomatis ke data tersebut.
+            <i class="fas fa-info-circle"></i> <b>Tips:</b> Scan part di tab ini untuk langsung mencari.
         </div>
     </div>
-    
     <input type="text" id="cariInput" placeholder="Filter Teks..." onkeyup="renderDataList(true)" style="width:100%; padding:10px; border:1px solid var(--border); border-radius:6px; margin-bottom:10px;">
-
     <div id="dataList" class="list-container"></div>
     <div id="dataLoading" style="text-align:center; padding:15px; display:none; color:var(--secondary);">Load more...</div>
 </div>
 
-<div class="overlay" id="actionModal">
+<div class="overlay" id="opnameConfirmModal">
     <div class="modal">
-        <h3 style="text-align:center;" id="modalTitle">Konfirmasi Simpan</h3>
-        <p style="text-align:center; color:var(--secondary);" id="modalDesc"></p>
+        <h3 style="text-align:center;" id="opnameModalTitle">Konfirmasi</h3>
+        <p style="text-align:center; color:var(--secondary);" id="opnameModalDesc"></p>
         
-        <div style="background:var(--bg); padding:15px; text-align:center; border-radius:8px; margin:10px 0;">
-            <div id="modalMainPrompt"></div>
+        <div style="background:#fefce8; border:1px solid #fef08a; padding:10px; border-radius:6px; margin-bottom:15px; text-align:center;">
+            Part ini belum ada di Box <b id="opnameTargetBox"></b>.
         </div>
 
-        <button class="btn btn-success" onclick="confirmSave('add')">SPLIT / TAMBAH (Stok Bertambah)</button>
-        <button class="btn btn-warning" id="btnMove" onclick="toggleMoveOption()">PINDAHKAN (Stok Tetap)</button>
-        
-        <div id="moveSourceDiv" style="display:none; margin-top:10px; padding:10px; background:var(--bg); border:1px solid var(--border);">
-            <div id="singleMoveUI">
-                <small>Ambil dari:</small>
-                <select id="moveSourceSelect" style="margin-bottom:5px; width:100%; padding:8px;"></select>
-            </div>
-            <div id="multiMoveUI" style="display:none; color:var(--secondary); font-size:0.9rem; margin-bottom:5px;">
-                Semua part yang konflik akan dipindahkan dari lokasi lamanya ke box ini.
-            </div>
-            <button class="btn btn-primary btn-sm" onclick="confirmSave('move')">Konfirmasi Pindah</button>
+        <div id="btnGroupConflict" style="display:none;">
+            <button class="btn btn-warning" onclick="executeOpnameAction('move')">
+                <i class="fas fa-exchange-alt"></i> SALAH TEMPAT (Pindahkan ke sini)
+            </button>
+            <button class="btn btn-success" onclick="executeOpnameAction('add')">
+                <i class="fas fa-columns"></i> SPLIT (Tambah Stok di sini)
+            </button>
         </div>
-        <button class="btn btn-outline" onclick="closeActionModal()">Batal</button>
+
+        <div id="btnGroupNew" style="display:none;">
+            <button class="btn btn-success" onclick="executeOpnameAction('add')">
+                <i class="fas fa-plus-circle"></i> TAMBAHKAN KE BOX INI
+            </button>
+        </div>
+        
+        <button class="btn btn-outline" onclick="closeOpnameConfirmModal()">Batal</button>
     </div>
 </div>
 
@@ -360,13 +365,13 @@
     let activeBoxFilter = null;
     let renderLimit = 50;
     
-    // Single Scan State
+    // Single Scan State (Simpan & Opname Flow B)
     let tempPart = null; 
+    let opnameConflictData = null; // { item, box }
     
     // Multi Scan State
     let isMultiScan = false;
-    let multiBuffer = []; // Array of item objects
-    let batchConflictData = null; // Store temp data for batch conflicts
+    let multiBuffer = []; 
 
     let editId = null;
 
@@ -375,7 +380,6 @@
         await initDB();
         if(localStorage.getItem('darkMode') === 'true') document.body.classList.add('dark-mode');
         
-        // Focus Trap
         document.getElementById('mainInput').focus();
         document.addEventListener('click', (e) => {
             if(e.target.tagName !== 'INPUT' && e.target.tagName !== 'BUTTON' && e.target.tagName !== 'SELECT' && !e.target.closest('.modal')) {
@@ -383,7 +387,7 @@
             }
         });
 
-        // Infinite Scroll
+        // Infinite Scroll Setup
         const setupScroll = (id, callback) => {
             const el = document.getElementById(id);
             if(el) el.addEventListener('scroll', () => {
@@ -451,7 +455,6 @@
     // --- MAIN SCANNER LOGIC ---
     function handleInputKeyDown(e) {
         if(e.key === 'Enter') {
-            // Kita tidak perlu membersihkan '|' di sini karena akan ditangani di processScan
             const val = e.target.value; 
             e.target.value = '';
             if(val) processScan(val);
@@ -475,17 +478,16 @@
         isMultiScan = document.getElementById('chkMultiScan').checked;
         const root = document.documentElement;
         
-        // UI Updates
         document.getElementById('simpanStatusPanel').style.display = isMultiScan ? 'none' : 'none'; 
         document.getElementById('multiScanPanel').style.display = isMultiScan ? 'block' : 'none';
         
         if (isMultiScan) {
-            clearActivePart(); // Reset Single
+            clearActivePart();
             root.style.setProperty('--active-color', 'var(--purple)');
             document.querySelector('header').style.background = 'var(--purple)';
             setStatus("Mode Multi Scan Aktif");
         } else {
-            clearMultiBuffer(); // Reset Multi
+            clearMultiBuffer();
             root.style.setProperty('--active-color', 'var(--primary)');
             document.querySelector('header').style.background = 'var(--primary)';
             setStatus("Mode Single Scan");
@@ -494,112 +496,213 @@
     }
 
     function processScan(code) {
-        // --- CLEANING LOGIC UNTUK QR FORMAT LAMA ---
-        if(code.includes('|')) {
-            code = code.split('|')[0];
-        }
+        // --- CLEAN QR ---
+        if(code.includes('|')) code = code.split('|')[0];
         code = code.trim().toUpperCase();
 
         const item = filteredItems.find(i => i.partNo.toUpperCase() === code);
-        
-        // --- BOX VALIDATION PATTERN ---
-        // XY-YY -> Huruf, Angka, Strip, Angka, Angka (Contoh: A1-05)
         const boxPattern = /^[A-Z][0-9]-[0-9]{2}$/;
+        const isBox = boxPattern.test(code);
 
-        // === LOGIKA TAB SIMPAN ===
+        // ==========================
+        // TAB 1: SIMPAN (INBOUND)
+        // ==========================
         if (currentTab === 'simpan') {
             if (item) {
-                // IT IS A KNOWN PART
+                // IT IS A PART
                 feedback('scan');
                 if (isMultiScan) {
                     addToMultiBuffer(item);
                 } else {
                     selectPartSimpan(item);
-                    setStatus(`Part Terpilih: ${item.partNo}`);
+                    setStatus(`Part: ${item.partNo}`);
                 }
             } else {
-                // NOT IN DB (Bisa Box atau Part Baru)
-                
-                // Cek apakah ini Box Valid?
-                const isBox = boxPattern.test(code);
-
+                // BOX OR NEW PART
                 if (isBox) {
-                     // INI ADALAH BOX
-                     if (isMultiScan) {
-                        // Di Multi Mode, Box men-trigger simpan
-                        if (multiBuffer.length > 0) {
-                            processMultiBatchSave(code);
-                        } else {
-                            feedback('error');
-                            setStatus("List Part Kosong!");
-                        }
+                    // ACTION: MOVE TOTAL KE BOX INI
+                    if (isMultiScan) {
+                        if (multiBuffer.length > 0) processMultiBatchMove(code);
+                        else { feedback('error'); setStatus("Buffer Kosong!"); }
                     } else {
-                        // Di Single Mode, Box menyimpan tempPart
-                        if (tempPart) {
-                            processSimpanBox(code);
-                        } else {
-                            feedback('error');
-                            showToast("Pilih Part dulu sebelum scan Box");
-                        }
+                        if (tempPart) executeMoveTotal(tempPart, code);
+                        else { feedback('error'); showToast("Scan Part Dulu!"); }
                     }
                 } else {
-                    // BUKAN BOX VALID DAN TIDAK ADA DI DB -> PART BARU
-                    if (isMultiScan) {
-                         if(confirm(`Kode "${code}" tidak dikenal. Buat Part Baru?`)) {
-                             const newItem = createNewItem(code);
-                             addToMultiBuffer(newItem);
-                         }
-                    } else {
-                        if(confirm(`Kode "${code}" tidak dikenal. Buat Part Baru?`)) {
-                            const newItem = createNewItem(code);
-                            selectPartSimpan(newItem);
-                        } else {
-                            feedback('error');
-                        }
+                    // NEW PART CREATION
+                    if(confirm(`Kode "${code}" Baru. Buat Part?`)) {
+                        const newItem = createNewItem(code);
+                        if(isMultiScan) addToMultiBuffer(newItem);
+                        else selectPartSimpan(newItem);
                     }
                 }
             }
             return;
         }
 
-        // === LOGIKA TAB LAIN ===
-        if (item) {
-            feedback('scan');
-            if (currentTab === 'opname') {
-                openEditModal(item.id);
-                setStatus(`Edit Part: ${item.partNo}`);
-            } else if (currentTab === 'data') {
-                jumpToItem(item.partNo);
-                setStatus(`Jump: ${item.partNo}`);
-            }
-        } else {
-            // Item tidak ketemu
-            if (currentTab === 'opname') {
-                // Cek validasi box juga di sini
-                if (boxPattern.test(code)) {
+        // ==========================
+        // TAB 2: OPNAME (STOCK TAKE)
+        // ==========================
+        if (currentTab === 'opname') {
+            if (activeBoxFilter) {
+                // --- KONDISI A: BOX SUDAH TERPILIH ---
+                if (isBox) {
+                    // Scan box lagi -> Ganti Box
+                    feedback('scan'); setOpnameBoxFilter(code); return;
+                }
+
+                if (item) {
+                    // Part ditemukan di DB
+                    const currentQty = item.locations[activeBoxFilter];
+                    if (currentQty !== undefined) {
+                        // SUDAH ADA DI BOX: AUTO INCREMENT
+                        item.locations[activeBoxFilter]++;
+                        saveDB(item);
+                        feedback('success');
+                        showToast(`${item.partNo}: Qty +1`);
+                        handleOpnameRender(); // Refresh view
+                    } else {
+                        // BELUM ADA DI BOX INI -> CEK KONFLIK
+                        feedback('scan');
+                        promptOpnameConflict(item, activeBoxFilter);
+                    }
+                } else {
+                    // Part Baru / Tidak di DB
+                     if(confirm(`Kode "${code}" Baru. Tambah ke Box ini?`)) {
+                        const newItem = createNewItem(code);
+                        newItem.locations[activeBoxFilter] = 1;
+                        saveDB(newItem);
+                        feedback('success');
+                        handleOpnameRender();
+                    }
+                }
+
+            } else {
+                // --- KONDISI B: BELUM PILIH BOX ---
+                if (isBox) {
+                    feedback('scan'); setOpnameBoxFilter(code);
+                } else if (item) {
+                    // Tampilkan Mode Info
                     feedback('scan');
-                    setOpnameBoxFilter(code);
-                    setStatus(`Filter Box: ${code}`);
+                    showOpnameInfo(item);
                 } else {
                     feedback('error');
-                    setStatus("Bukan Kode Box Valid / Part tidak ada");
+                    setStatus("Scan Box untuk mulai!");
                 }
-            } else {
-                feedback('error');
-                setStatus("Item tidak ditemukan.");
             }
+            return;
+        }
+
+        // ==========================
+        // TAB 3: DATA
+        // ==========================
+        if (item) {
+            feedback('scan');
+            jumpToItem(item.partNo);
+        } else {
+            feedback('error');
+            setStatus("Item tidak ditemukan");
         }
     }
 
-    // --- TAB 1: SIMPAN (SINGLE) ---
+    // --- LOGIC SIMPAN (MOVE TOTAL) ---
+    function executeMoveTotal(item, box) {
+        // Pindahkan Total System Qty ke Box Baru
+        // Kosongkan lokasi lama, set lokasi baru = sysQty (atau 1 jika 0)
+        let qtyToSet = item.sysQty > 0 ? item.sysQty : 1;
+        
+        item.locations = {}; // Reset lokasi lama
+        item.locations[box] = qtyToSet; // Set lokasi baru
+        
+        saveDB(item);
+        feedback('success');
+        showToast(`${item.partNo} Pindah ke ${box}`);
+        clearActivePart();
+    }
+
+    function processMultiBatchMove(box) {
+        multiBuffer.forEach(item => {
+            let qtyToSet = item.sysQty > 0 ? item.sysQty : 1;
+            item.locations = {}; 
+            item.locations[box] = qtyToSet;
+            saveDB(item);
+        });
+        feedback('success');
+        showToast(`${multiBuffer.length} Item Pindah ke ${box}`);
+        clearMultiBuffer();
+    }
+
+    function createNewItem(code) {
+        const item = {
+            id: Date.now(), partNo: code, desc: "PART BARU", 
+            locType: document.getElementById('filterLoc').value,
+            techName: document.getElementById('filterTech').value,
+            locations: {}, sysQty: 0, raw: {}
+        };
+        localItems.push(item); filteredItems.push(item);
+        return item;
+    }
+
+    // --- LOGIC OPNAME ---
+    function promptOpnameConflict(item, box) {
+        opnameConflictData = { item, box };
+        const existingLocs = Object.keys(item.locations);
+        
+        document.getElementById('opnameConfirmModal').style.display = 'flex';
+        document.getElementById('opnameTargetBox').innerText = box;
+        
+        if (existingLocs.length > 0) {
+            // Case: Ada di tempat lain
+            document.getElementById('opnameModalTitle').innerText = "Konflik Lokasi";
+            document.getElementById('opnameModalDesc').innerText = `Part ini tercatat ada di: ${existingLocs.join(', ')}`;
+            document.getElementById('btnGroupConflict').style.display = 'block';
+            document.getElementById('btnGroupNew').style.display = 'none';
+        } else {
+            // Case: Tidak ada lokasi (Stok 0 tapi part ada di DB)
+            document.getElementById('opnameModalTitle').innerText = "Stok Kosong";
+            document.getElementById('opnameModalDesc').innerText = "Part ada di database tapi belum punya lokasi.";
+            document.getElementById('btnGroupConflict').style.display = 'none';
+            document.getElementById('btnGroupNew').style.display = 'block';
+        }
+    }
+
+    function executeOpnameAction(action) {
+        const { item, box } = opnameConflictData;
+        if (action === 'move') {
+            // Pindah: Hapus lokasi lama, set lokasi baru = 1
+            item.locations = {};
+            item.locations[box] = 1;
+        } else if (action === 'add') {
+            // Split/Add: Biarkan lokasi lama, tambah lokasi baru = 1
+            item.locations[box] = 1;
+        }
+        saveDB(item);
+        feedback('success');
+        handleOpnameRender();
+        closeOpnameConfirmModal();
+    }
+
+    function closeOpnameConfirmModal() {
+        document.getElementById('opnameConfirmModal').style.display = 'none';
+        opnameConflictData = null;
+    }
+
+    function showOpnameInfo(item) {
+        tempPart = item; // reuse tempPart for display
+        document.getElementById('opnameInfoPanel').style.display = 'block';
+        document.getElementById('infoPartNo').innerText = item.partNo;
+        document.getElementById('infoPartDesc').innerText = item.desc;
+        const locs = Object.entries(item.locations).map(([k,v])=>`${k} (${v})`).join(', ');
+        document.getElementById('infoLocList').innerText = locs || "Belum ada lokasi";
+        document.getElementById('opnameList').style.display = 'none'; // Hide list temporarily
+    }
+
+    // --- RENDER UTILS ---
     function renderSimpanList(reset = true) {
         if(reset) renderLimit = 50;
         const container = document.getElementById('simpanList');
         if(reset) container.innerHTML = '';
-        
-        if(filteredItems.length === 0) {
-            container.innerHTML = '<div style="padding:20px; text-align:center; color:#999">Pilih Lokasi Dulu</div>'; return;
-        }
+        if(filteredItems.length === 0) return;
 
         const show = filteredItems.slice(0, renderLimit);
         show.forEach(i => {
@@ -637,42 +740,23 @@
         }
     }
 
+    function addToMultiBuffer(item) {
+        multiBuffer.push(item);
+        const container = document.getElementById('multiTagsContainer');
+        const tag = document.createElement('span');
+        tag.className = 'multi-tag';
+        tag.innerText = item.partNo;
+        container.prepend(tag);
+        document.getElementById('multiCount').innerText = multiBuffer.length;
+        const row = document.getElementById(`simpan-row-${item.id}`);
+        if(row) row.classList.add('selected');
+    }
+
     function clearActivePart() {
         tempPart = null;
         document.getElementById('simpanStatusPanel').style.display = 'none';
         document.querySelectorAll('.item-card').forEach(el => el.classList.remove('selected'));
     }
-
-    function createNewItem(code) {
-        const item = {
-            id: Date.now(), partNo: code, desc: "PART BARU", 
-            locType: document.getElementById('filterLoc').value,
-            techName: document.getElementById('filterTech').value,
-            locations: {}, sysQty: 0, raw: {}
-        };
-        localItems.push(item); filteredItems.push(item);
-        return item;
-    }
-
-    // --- TAB 1: SIMPAN (MULTI SCAN LOGIC) ---
-    function addToMultiBuffer(item) {
-        // Add to array
-        multiBuffer.push(item);
-        
-        // Update UI
-        const container = document.getElementById('multiTagsContainer');
-        const tag = document.createElement('span');
-        tag.className = 'multi-tag';
-        tag.innerText = item.partNo;
-        container.prepend(tag); // Add to top
-        
-        document.getElementById('multiCount').innerText = multiBuffer.length;
-        
-        // Highlight in list
-        const row = document.getElementById(`simpan-row-${item.id}`);
-        if(row) row.classList.add('selected');
-    }
-
     function clearMultiBuffer() {
         multiBuffer = [];
         document.getElementById('multiTagsContainer').innerHTML = '';
@@ -680,158 +764,21 @@
         document.querySelectorAll('.item-card').forEach(el => el.classList.remove('selected'));
     }
 
-    function processMultiBatchSave(box) {
-        box = box.trim().toUpperCase();
-        // Cek konflik
-        // Konflik = item yang sudah punya lokasi, tapi bukan di box yang sedang discan
-        const conflicts = multiBuffer.filter(i => {
-            const locs = Object.keys(i.locations);
-            if (locs.length === 0) return false; // Kosong = aman
-            if (locs.length === 1 && locs[0] === box) return false; // Sudah di box ini = aman
-            return true; // Ada di box lain
-        });
-
-        if (conflicts.length > 0) {
-            feedback('error');
-            const names = [...new Set(conflicts.map(c => c.partNo))].join(', ');
-            batchConflictData = { box: box, conflicts: conflicts }; // Simpan state
-            
-            openActionModalBatch(box, multiBuffer.length, names);
-        } else {
-            // Safe to save all
-            executeBatchSave(box, 'add');
-        }
-    }
-
-    function executeBatchSave(box, mode) {
-        const tx = db.transaction('items', 'readwrite');
-        const store = tx.objectStore('items');
-        
-        multiBuffer.forEach(item => {
-            if (mode === 'move') {
-                // Logic aman "PINDAHKAN" di Multi Scan: 
-                // Kurangi 1 dari lokasi "Terbesar" atau "Pertama", tambah 1 ke lokasi Baru.
-                const locs = Object.keys(item.locations);
-                if(locs.length > 0 && !item.locations[box]) {
-                     const oldBox = locs[0];
-                     if(item.locations[oldBox] > 0) {
-                         item.locations[oldBox]--;
-                         if(item.locations[oldBox]<=0) delete item.locations[oldBox];
-                     }
-                }
-            }
-            
-            // Add Logic (Default)
-            item.locations[box] = (item.locations[box] || 0) + 1;
-            store.put(item);
-        });
-
-        tx.oncomplete = () => {
-            feedback('success');
-            showToast(`${multiBuffer.length} Item disimpan ke ${box}`);
-            clearMultiBuffer();
-            closeActionModal();
-        };
-    }
-
-    // --- SHARED MODALS & SAVING ---
-    function processSimpanBox(box) {
-        box = box.trim().toUpperCase();
-        if(!tempPart) return;
-        const qty = parseInt(document.getElementById('simpanQty').value) || 1;
-        const locs = Object.keys(tempPart.locations);
-        if(locs.length === 0 || tempPart.locations[box]) {
-            tempPart.locations[box] = (tempPart.locations[box] || 0) + qty;
-            saveDB(tempPart); feedback('success');
-            showToast(`Disimpan ke ${box}`); clearActivePart();
-        } else {
-            feedback('error'); openActionModalSingle(box, qty, locs);
-        }
-    }
-
-    function openActionModalSingle(box, qty, locs) {
-        document.getElementById('actionModal').style.display = 'flex';
-        document.getElementById('modalTitle').innerText = "Konfirmasi Simpan";
-        document.getElementById('modalDesc').innerText = `Part ini sudah ada di: ${locs.join(', ')}`;
-        
-        document.getElementById('modalMainPrompt').innerHTML = `Simpan <b>${qty} pcs</b> ke <b style="color:var(--primary);">${box}</b>?`;
-        
-        // Setup Single UI
-        document.getElementById('singleMoveUI').style.display = 'block';
-        document.getElementById('multiMoveUI').style.display = 'none';
-        
-        const sel = document.getElementById('moveSourceSelect');
-        sel.innerHTML = '';
-        locs.forEach(l => sel.innerHTML += `<option value="${l}">${l} (${tempPart.locations[l]})</option>`);
-        
-        document.getElementById('moveSourceDiv').style.display='none';
-        
-        // Temp Data
-        tempPart.tempTarget = box; 
-        tempPart.tempQty = qty;
-        tempPart.isBatch = false;
-    }
-
-    function openActionModalBatch(box, totalQty, conflictNames) {
-        document.getElementById('actionModal').style.display = 'flex';
-        document.getElementById('modalTitle').innerText = "Konfirmasi Multi Scan";
-        
-        // Limit text length
-        const dispNames = conflictNames.length > 50 ? conflictNames.substring(0,50)+'...' : conflictNames;
-        document.getElementById('modalDesc').innerHTML = `Beberapa part sudah ada di lokasi lain:<br><b>${dispNames}</b>`;
-        
-        document.getElementById('modalMainPrompt').innerHTML = `Simpan Total <b>${totalQty} Items</b> ke <b style="color:var(--purple);">${box}</b>?`;
-
-        // Setup Multi UI
-        document.getElementById('singleMoveUI').style.display = 'none';
-        document.getElementById('multiMoveUI').style.display = 'block';
-        document.getElementById('moveSourceDiv').style.display='none';
-
-        // Temp Data
-        batchConflictData.tempTarget = box;
-        batchConflictData.isBatch = true;
-    }
-
-    function confirmSave(mode) {
-        // Cek context: Single or Batch
-        const isBatch = batchConflictData && batchConflictData.isBatch;
-        
-        if (isBatch) {
-            // Handle Batch
-            executeBatchSave(batchConflictData.tempTarget, mode);
-            batchConflictData = null;
-        } else {
-            // Handle Single
-            const item = tempPart; 
-            const box = item.tempTarget; 
-            const qty = item.tempQty;
-            
-            if(mode==='add') {
-                item.locations[box] = (item.locations[box]||0) + qty;
-                feedback('success');
-            } else {
-                const src = document.getElementById('moveSourceSelect').value;
-                if(item.locations[src] < qty) { feedback('error'); return alert('Stok kurang'); }
-                item.locations[src] -= qty;
-                if(item.locations[src]<=0) delete item.locations[src];
-                item.locations[box] = (item.locations[box]||0) + qty;
-                feedback('success');
-            }
-            saveDB(item); closeActionModal(); clearActivePart();
-        }
-    }
-
-    // --- TAB 2: OPNAME ---
+    // --- OPNAME RENDER ---
     function setOpnameBoxFilter(box) {
         activeBoxFilter = box;
         document.getElementById('activeBoxName').innerText = box;
         document.getElementById('activeBoxPanel').style.display = 'block';
+        document.getElementById('opnameInfoPanel').style.display = 'none'; // Hide info panel
+        document.getElementById('opnameList').style.display = 'flex'; // Show list
         handleOpnameRender();
     }
     
     function clearOpnameBoxFilter() {
         activeBoxFilter = null;
         document.getElementById('activeBoxPanel').style.display = 'none';
+        document.getElementById('opnameInfoPanel').style.display = 'none';
+        document.getElementById('opnameList').style.display = 'flex';
         handleOpnameRender();
     }
 
@@ -880,7 +827,7 @@
         document.getElementById('opnameLoading').style.display = (renderLimit < dataset.length) ? 'block' : 'none';
     }
 
-    // --- TAB 3: DATA (JUMP TO ITEM) ---
+    // --- DATA TAB ---
     function renderDataList(reset = false) {
         if(reset) renderLimit = 50;
         const q = document.getElementById('cariInput').value.toLowerCase();
@@ -898,7 +845,6 @@
             const total = Object.values(i.locations).reduce((a,b)=>a+b,0);
             const locs = Object.entries(i.locations).map(([k,v])=>`${k}(${v})`).join(', ');
             let color = total!==i.sysQty ? 'var(--danger)' : (total>0 ? 'var(--opname)' : 'var(--text)');
-            
             html += `
             <div class="item-card" id="data-row-${i.id}" onclick="openEditModal(${i.id})">
                 <div style="flex:1;">
@@ -924,14 +870,10 @@
             showToast("Part tidak ditemukan di filter ini");
             return;
         }
-
         const item = filteredItems[index];
-        document.getElementById('cariInput').value = ''; // Reset local search
-
+        document.getElementById('cariInput').value = ''; 
         if (index >= renderLimit) renderLimit = index + 20;
-        
-        renderDataList(false); // Render full list
-
+        renderDataList(false); 
         setTimeout(() => {
             const row = document.getElementById(`data-row-${item.id}`);
             if (row) {
@@ -989,7 +931,6 @@
         const tx = db.transaction('items', 'readwrite');
         tx.objectStore('items').put(item);
     }
-    function closeActionModal() { document.getElementById('actionModal').style.display='none'; }
     
     function switchTab(id) {
         currentTab = id;
@@ -998,10 +939,8 @@
         document.querySelectorAll('.nav-item').forEach(e=>e.classList.remove('active'));
         event.currentTarget.classList.add('active');
         
-        // Context Color Change
         const root = document.documentElement;
         if(id === 'simpan') {
-            // Restore color based on Multi Toggle state
             const isMulti = document.getElementById('chkMultiScan').checked;
             root.style.setProperty('--active-color', isMulti ? 'var(--purple)' : 'var(--primary)');
             document.querySelector('header').style.background = isMulti ? 'var(--purple)' : 'var(--primary)';
@@ -1015,17 +954,14 @@
             document.querySelector('header').style.background = 'var(--data)';
         }
 
-        // Render Triggers
         if(id === 'opname') handleOpnameRender();
         if(id === 'simpan') renderSimpanList(true);
         if(id === 'data') renderDataList(true);
-        
         document.getElementById('mainInput').focus();
     }
 
     function toggleMenu() { const e=document.getElementById('menuModal'); e.style.display=e.style.display==='flex'?'none':'flex'; }
     function toggleDarkMode() { document.body.classList.toggle('dark-mode'); localStorage.setItem('darkMode', document.body.classList.contains('dark-mode')); }
-    function toggleMoveOption() { document.getElementById('moveSourceDiv').style.display='block'; }
     
     function handleImport(input) {
         const f=input.files[0]; if(!f)return;
