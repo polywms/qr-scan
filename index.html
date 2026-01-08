@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>WMS V5: Inbound & Opname</title>
+    <title>WMS V5: Stable & Scroll</title>
     <script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     
@@ -37,7 +37,7 @@
             background: var(--bg); 
             color: var(--text); 
             margin: 0; 
-            padding-top: 100px; /* Space for Header + Tabs */
+            padding-top: 100px; 
             padding-bottom: 0;
             display: flex; 
             flex-direction: column; 
@@ -57,7 +57,7 @@
         h1 { margin: 0; font-size: 1.1rem; font-weight: 700; letter-spacing: 0.5px; }
         .header-btn { background: none; border: none; color: white; font-size: 1.2rem; cursor: pointer; padding: 5px; }
 
-        /* NAV TABS (PINDAH KE ATAS) */
+        /* NAV TABS */
         .nav-tabs { 
             position: fixed; top: 50px; left: 0; width: 100%; 
             background: var(--card); border-bottom: 1px solid var(--border); 
@@ -75,7 +75,7 @@
 
         /* CONTENT WRAPPER */
         .main-content-wrapper {
-            flex: 1; display: flex; flex-direction: column; overflow: hidden;
+            flex: 1; display: flex; flex-direction: column; overflow: hidden; position: relative;
         }
 
         /* FILTER GLOBAL */
@@ -105,7 +105,7 @@
         .flash-error { animation: flashError 0.5s ease-out; }
 
         /* CONTENT AREA */
-        .tab-content { flex: 1; overflow-y: auto; padding: 15px; display: none; }
+        .tab-content { flex: 1; overflow-y: auto; padding: 15px; display: none; scroll-behavior: smooth; }
         .tab-content.active { display: block; }
 
         /* LIST ITEMS */
@@ -126,8 +126,8 @@
         .qty-badge { font-weight: bold; padding: 4px 10px; border-radius: 6px; font-size: 0.95rem; min-width: 30px; text-align: center; }
         .qty-match { background: #dcfce7; color: #166534; }
         .qty-diff { background: #fee2e2; color: #991b1b; }
-        .qty-zero { background: #f1f5f9; color: #64748b; } /* 0 = Counted as 0 (Empty) */
-        .qty-uncounted { background: #e2e8f0; color: #64748b; border:1px dashed #94a3b8; } /* 0 = Inbound/Not Counted */
+        .qty-zero { background: #f1f5f9; color: #64748b; }
+        .qty-uncounted { background: #e2e8f0; color: #64748b; border:1px dashed #94a3b8; }
 
         /* SEGMENTED TABS */
         .segment-control { display: flex; width: 100%; background: var(--card); border-bottom: 1px solid var(--border); margin-bottom: 10px; }
@@ -137,7 +137,7 @@
         /* PANELS */
         .status-panel { background: #eff6ff; border: 1px solid #bfdbfe; padding: 15px; border-radius: 8px; margin-bottom: 15px; display: none; }
         .multi-panel { background: #f3e8ff; border: 1px solid #d8b4fe; padding: 10px; border-radius: 8px; margin-bottom: 15px; display: none; }
-        .multi-tag { background: #a855f7; color: white; padding: 4px 10px; border-radius: 20px; font-size: 0.75rem; margin-right: 5px; margin-bottom: 5px; display: inline-block; }
+        .multi-tag { background: #a855f7; color: white; padding: 4px 10px; border-radius: 20px; font-size: 0.75rem; margin-right: 5px; margin-bottom: 5px; display: inline-block; box-shadow: 0 1px 2px rgba(0,0,0,0.1); }
         
         .info-mode-panel { background: #fff7ed; border: 2px dashed #f97316; padding: 20px; border-radius: 12px; text-align: center; margin-bottom: 20px; display:none; }
 
@@ -157,14 +157,24 @@
         #toast { visibility: hidden; min-width: 250px; background-color: #333; color: #fff; text-align: center; padding: 12px; position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%); z-index: 3000; border-radius: 8px; font-weight: 500; }
         #toast.show { visibility: visible; animation: fadein 0.3s, fadeout 0.3s 2.5s; }
         
-        @keyframes fadein { from {bottom: 10px; opacity: 0;} to {bottom: 30px; opacity: 1;} }
-        @keyframes fadeout { from {bottom: 30px; opacity: 1;} to {bottom: 10px; opacity: 0;} }
-        
         @keyframes flashRow { 
             0% { background-color: #fef08a; border-left: 5px solid #ca8a04; transform: scale(1.02); } 
             100% { background-color: var(--card); border-left: 1px solid var(--border); transform: scale(1); } 
         }
         .row-flash { animation: flashRow 2s ease-out; z-index: 50; position: relative; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+
+        /* SCROLL TOP BUTTON */
+        .scroll-btn {
+            position: fixed; bottom: 20px; right: 20px;
+            width: 50px; height: 50px;
+            background: var(--active-color); color: white;
+            border-radius: 50%; border: none;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+            display: none; justify-content: center; align-items: center;
+            font-size: 1.2rem; cursor: pointer; z-index: 1500;
+            transition: transform 0.2s, background 0.3s;
+        }
+        .scroll-btn:active { transform: scale(0.9); }
     </style>
 </head>
 <body>
@@ -222,7 +232,8 @@
                 <b style="color:var(--purple);"><i class="fas fa-layer-group"></i> Buffer: <span id="multiCount">0</span> items</b>
                 <button class="btn-sm btn-danger" onclick="clearMultiBuffer()">Clear</button>
             </div>
-            <div id="multiTagsContainer" style="max-height:100px; overflow-y:auto; padding-bottom:5px;"></div>
+            <div id="multiTagsContainer" style="max-height:100px; overflow-y:auto; padding-bottom:5px; display:flex; flex-wrap:wrap; gap:5px;"></div>
+            
             <div style="margin-top:10px; font-size:0.9rem; font-weight:bold; color:var(--purple); animation: pulse 2s infinite; text-align:center;">
                 <i class="fas fa-arrow-right"></i> SCAN BOX UNTUK SET LOKASI
             </div>
@@ -293,28 +304,23 @@
     </div>
 </div>
 
+<button id="scrollTopBtn" class="scroll-btn" onclick="scrollToTop()">
+    <i class="fas fa-arrow-up"></i>
+</button>
+
 <div class="overlay" id="opnameConfirmModal">
     <div class="modal">
         <h3 style="text-align:center;" id="opnameModalTitle">Konfirmasi</h3>
         <p style="text-align:center; color:var(--secondary);" id="opnameModalDesc"></p>
-        
         <div style="background:#fefce8; border:1px solid #fef08a; padding:10px; border-radius:6px; margin-bottom:15px; text-align:center;">
             Part ini belum ada di Box <b id="opnameTargetBox"></b>.
         </div>
-
         <div id="btnGroupConflict" style="display:none;">
-            <button class="btn btn-warning" onclick="executeOpnameAction('move')">
-                <i class="fas fa-exchange-alt"></i> SALAH TEMPAT (Pindahkan ke sini)
-            </button>
-            <button class="btn btn-success" onclick="executeOpnameAction('add')">
-                <i class="fas fa-columns"></i> SPLIT (Tambah Stok di sini)
-            </button>
+            <button class="btn btn-warning" onclick="executeOpnameAction('move')"><i class="fas fa-exchange-alt"></i> SALAH TEMPAT (Pindahkan ke sini)</button>
+            <button class="btn btn-success" onclick="executeOpnameAction('add')"><i class="fas fa-columns"></i> SPLIT (Tambah Stok di sini)</button>
         </div>
-
         <div id="btnGroupNew" style="display:none;">
-            <button class="btn btn-success" onclick="executeOpnameAction('add')">
-                <i class="fas fa-plus-circle"></i> TAMBAHKAN KE BOX INI
-            </button>
+            <button class="btn btn-success" onclick="executeOpnameAction('add')"><i class="fas fa-plus-circle"></i> TAMBAHKAN KE BOX INI</button>
         </div>
         <button class="btn btn-outline" onclick="closeOpnameConfirmModal()">Batal</button>
     </div>
@@ -327,23 +333,14 @@
             Part <b><span id="scmPart"></span></b> sudah ada di: <br>
             <b id="scmOldLoc" style="color:var(--danger);"></b>
         </p>
-        
         <div style="background:#eff6ff; padding:15px; text-align:center; border-radius:8px; margin:15px 0; border:1px solid #bfdbfe;">
             Target Baru: <b id="scmNewBox" style="color:var(--primary); font-size:1.2rem;"></b>
-            <br>
-            <small id="scmQty">Lokasi Saja</small>
+            <br><small id="scmQty">Lokasi Saja</small>
         </div>
-
-        <button class="btn btn-warning" onclick="executeSimpanAction('move')">
-            <i class="fas fa-dolly"></i> PINDAHKAN LOKASI (Move)
-        </button>
+        <button class="btn btn-warning" onclick="executeSimpanAction('move')"><i class="fas fa-dolly"></i> PINDAHKAN LOKASI (Move)</button>
         <div style="font-size:0.8rem; color:#666; text-align:center; margin:5px 0;">Lokasi lama dihapus</div>
-
-        <button class="btn btn-success" onclick="executeSimpanAction('split')">
-            <i class="fas fa-columns"></i> TAMBAH LOKASI (Split)
-        </button>
+        <button class="btn btn-success" onclick="executeSimpanAction('split')"><i class="fas fa-columns"></i> TAMBAH LOKASI (Split)</button>
         <div style="font-size:0.8rem; color:#666; text-align:center; margin:5px 0;">Lokasi lama tetap ada</div>
-        
         <button class="btn btn-outline" onclick="closeSimpanConflictModal()">Batal</button>
     </div>
 </div>
@@ -419,16 +416,17 @@
         osc.stop(audioCtx.currentTime + duration);
     }
 
+    // UPDATE 1: Status tidak otomatis hilang (Timeout dihapus/dikomentari)
     let statusTimeout;
     function setStatus(msg) {
         const el = document.getElementById('scanStatusText');
         el.innerText = msg;
-        clearTimeout(statusTimeout);
-        statusTimeout = setTimeout(() => { el.innerText = "Siap Scan..."; }, 4000); 
+        // clearTimeout(statusTimeout);
+        // statusTimeout = setTimeout(() => { el.innerText = "Siap Scan..."; }, 4000); 
     }
 
     // --- DB CONFIG ---
-    const DB_NAME = 'WMS_Stock_v10'; // Bump version
+    const DB_NAME = 'WMS_Stock_v10';
     let db = null;
     let localItems = [];
     let filteredItems = [];
@@ -459,16 +457,30 @@
             }
         });
 
+        // Setup Scroll Listeners untuk tombol ScrollToTop
+        const scrollBtn = document.getElementById('scrollTopBtn');
         const setupScroll = (id, callback) => {
             const el = document.getElementById(id);
             if(el) el.addEventListener('scroll', () => {
+                // Load More logic
                 if(el.scrollTop + el.clientHeight >= el.scrollHeight - 50) callback();
+                // Scroll Button Logic
+                if (el.scrollTop > 300) scrollBtn.style.display = 'flex';
+                else scrollBtn.style.display = 'none';
             });
         };
         setupScroll('tab-opname', () => { renderLimit += 50; handleOpnameRender(); });
         setupScroll('tab-simpan', () => { renderLimit += 50; renderSimpanList(false); });
         setupScroll('tab-data', () => { renderLimit += 50; renderDataList(false); });
     };
+
+    // UPDATE 3: Fungsi Scroll to Top
+    function scrollToTop() {
+        const activeEl = document.querySelector('.tab-content.active');
+        if(activeEl) {
+            activeEl.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+    }
 
     function initDB() {
         return new Promise(resolve => {
@@ -641,11 +653,8 @@
         }
     }
 
-    // --- LOGIC SIMPAN (LOCATION ONLY, QTY 0) ---
     function checkSimpanConflict(item, newBox) {
         const existingLocs = Object.keys(item.locations);
-        
-        // 1. Jika belum punya lokasi -> Simpan Lokasi (Qty 0)
         if (existingLocs.length === 0) {
             item.locations[newBox] = 0; 
             saveDB(item);
@@ -654,18 +663,13 @@
             clearActivePart();
             return;
         }
-
-        // 2. Jika lokasi sama -> Abaikan
         if (existingLocs.includes(newBox)) {
             showToast(`Part sudah ada di ${newBox}`);
             clearActivePart();
             return;
         }
-
-        // 3. Jika lokasi beda -> KONFLIK
         feedback('error');
         simpanConflictData = { item, newBox }; 
-        
         document.getElementById('simpanConflictModal').style.display = 'flex';
         document.getElementById('scmPart').innerText = item.partNo;
         document.getElementById('scmOldLoc').innerText = existingLocs.join(', ');
@@ -675,7 +679,6 @@
     function executeSimpanAction(action) {
         if(!simpanConflictData) return;
         const { item, newBox } = simpanConflictData;
-
         if (action === 'move') {
             item.locations = {}; 
             item.locations[newBox] = 0;
@@ -684,7 +687,6 @@
             item.locations[newBox] = 0; 
             showToast(`Tambah Lokasi: ${newBox}`);
         }
-
         saveDB(item);
         feedback('success');
         closeSimpanConflictModal();
@@ -707,6 +709,7 @@
         clearMultiBuffer();
     }
 
+    // UPDATE 2: Fix Multi Scan Buffer UI
     function addToMultiBuffer(item) {
         // CEK DUPLIKAT
         const exists = multiBuffer.some(i => i.partNo === item.partNo);
@@ -716,18 +719,27 @@
         }
 
         multiBuffer.push(item);
-        const container = document.getElementById('multiTagsContainer');
-        const tag = document.createElement('span');
-        tag.className = 'multi-tag';
+        renderMultiBuffer(); // Render ulang seluruh list agar stabil
         
-        // UPDATE POIN 2: Menampilkan Lokasi Asal di Tag Buffer
-        const locInfo = Object.keys(item.locations).join(',') || 'Baru';
-        tag.innerText = `${item.partNo} (Loc: ${locInfo})`;
-        
-        container.prepend(tag);
-        document.getElementById('multiCount').innerText = multiBuffer.length;
+        // Highlight row jika ada di list bawah
         const row = document.getElementById(`simpan-row-${item.id}`);
         if(row) row.classList.add('selected');
+    }
+
+    // Fungsi helper baru untuk render multi scan
+    function renderMultiBuffer() {
+        const container = document.getElementById('multiTagsContainer');
+        container.innerHTML = ''; // Reset container
+        
+        multiBuffer.forEach(item => {
+            const locInfo = Object.keys(item.locations).join(',') || 'Baru';
+            const tag = document.createElement('span');
+            tag.className = 'multi-tag';
+            tag.innerHTML = `${item.partNo} <small style="opacity:0.8">(${locInfo})</small>`;
+            container.prepend(tag); // Tampilkan paling baru di kiri/atas
+        });
+        
+        document.getElementById('multiCount').innerText = multiBuffer.length;
     }
 
     function createNewItem(code) {
@@ -745,10 +757,8 @@
     function promptOpnameConflict(item, box) {
         opnameConflictData = { item, box };
         const existingLocs = Object.keys(item.locations);
-        
         document.getElementById('opnameConfirmModal').style.display = 'flex';
         document.getElementById('opnameTargetBox').innerText = box;
-        
         if (existingLocs.length > 0) {
             document.getElementById('opnameModalTitle').innerText = "Konflik Lokasi";
             document.getElementById('opnameModalDesc').innerText = `Tercatat di: ${existingLocs.join(', ')}`;
@@ -825,8 +835,6 @@
         document.getElementById('simpanStatusPanel').style.display = 'block';
         document.getElementById('activePartNo').innerText = item.partNo;
         document.getElementById('activePartDesc').innerText = item.desc;
-        
-        // UPDATE POIN 1: Render lokasi saat ini ke panel
         const locInfo = Object.keys(item.locations).join(', ') || 'Belum ada';
         document.getElementById('activePartLoc').innerText = locInfo;
 
@@ -850,8 +858,7 @@
     }
     function clearMultiBuffer() {
         multiBuffer = [];
-        document.getElementById('multiTagsContainer').innerHTML = '';
-        document.getElementById('multiCount').innerText = '0';
+        renderMultiBuffer();
         document.querySelectorAll('.item-card').forEach(el => el.classList.remove('selected'));
     }
 
@@ -886,7 +893,7 @@
         if(filteredItems.length === 0) return;
 
         let dataset = filteredItems;
-        if(activeBoxFilter) dataset = dataset.filter(i => i.locations[activeBoxFilter] !== undefined); // Pastikan key ada
+        if(activeBoxFilter) dataset = dataset.filter(i => i.locations[activeBoxFilter] !== undefined); 
 
         dataset = dataset.filter(i => {
             const total = Object.values(i.locations).reduce((a,b)=>a+b,0);
@@ -897,11 +904,9 @@
 
         const show = dataset.slice(0, renderLimit);
         show.forEach(i => {
-            // Logic Display Qty
             const qtyInBox = activeBoxFilter ? i.locations[activeBoxFilter] : 0;
             let badgeClass = '';
             let qtyDisplay = '';
-
             if (qtyInBox === 0) {
                 badgeClass = 'qty-uncounted';
                 qtyDisplay = '0 (Uncounted)';
@@ -909,15 +914,12 @@
                 badgeClass = (qtyInBox === i.sysQty) ? 'qty-match' : 'qty-diff';
                 qtyDisplay = `${qtyInBox} / ${i.sysQty}`;
             }
-
             let locStr = activeBoxFilter 
                 ? `Box ${activeBoxFilter}` 
                 : Object.entries(i.locations).map(([k,v])=>`${k}(${v})`).join(', ');
 
             const div = document.createElement('div');
             div.className = 'item-card';
-            
-            // Layout Row: Info | Qty Badge | Trash
             div.innerHTML = `
                 <div style="flex:1" onclick="openEditModal(${i.id})">
                     <span class="part-code">${i.partNo}</span>
@@ -980,7 +982,6 @@
         document.getElementById('cariInput').value = ''; 
         if (index >= renderLimit) renderLimit = index + 20;
         renderDataList(false); 
-        
         setTimeout(() => {
             const row = document.getElementById(`data-row-${item.id}`);
             if (row) {
@@ -1021,7 +1022,6 @@
                 delete item.locations[box];
                 saveDB(item);
                 feedback('success');
-                // Refresh views
                 if(document.getElementById('editModal').style.display === 'flex') openEditModal(id);
                 if(currentTab === 'opname') handleOpnameRender();
                 if(currentTab === 'data') renderDataList(false);
@@ -1034,7 +1034,7 @@
         const qty = parseInt(document.getElementById('editNewQty').value);
         if(box && qty !== isNaN) {
             const item = localItems.find(i=>i.id===editId);
-            item.locations[box] = qty || 0; // Allow 0
+            item.locations[box] = qty || 0; 
             saveDB(item); openEditModal(editId);
         }
     }
@@ -1043,7 +1043,6 @@
         const item = localItems.find(i=>i.id===editId);
         document.querySelectorAll('.edit-qty-input').forEach(inp => {
             const v = parseInt(inp.value);
-            // Don't delete if 0, just update. Only delete via trash button.
             if(!isNaN(v)) item.locations[inp.dataset.box]=v; 
         });
         saveDB(item); document.getElementById('editModal').style.display='none'; 
@@ -1062,7 +1061,9 @@
         document.querySelectorAll('.nav-item').forEach(e=>e.classList.remove('active'));
         event.currentTarget.classList.add('active');
         
-        // UPDATE POIN 3: Hilangkan Checkbox Multi Scan di tab lain
+        // Update tampilan tombol scroll
+        document.getElementById('scrollTopBtn').style.display = 'none';
+
         const multiToggle = document.getElementById('multiScanToggle');
         if (id === 'simpan') {
             multiToggle.style.display = 'flex';
@@ -1101,29 +1102,22 @@
         r.onload = async e => {
             const wb = XLSX.read(e.target.result, {type:'array'});
             const json = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], {defval:''});
-            
-            // 1. Ambil data lama (Backup Locations)
             const txRead = db.transaction('items', 'readonly');
             const oldItems = await new Promise(resolve => {
                 txRead.objectStore('items').getAll().onsuccess = ev => resolve(ev.target.result || []);
             });
-
             const locationMap = {};
             oldItems.forEach(item => {
                 if(Object.keys(item.locations).length > 0) {
                     locationMap[item.partNo] = item.locations;
                 }
             });
-
-            // 2. Clear & Rewrite (Merge)
             const tx = db.transaction('items', 'readwrite');
             const st = tx.objectStore('items'); 
             st.clear(); 
-
             json.forEach((row, i) => {
                 const pNo = String(row['Part']||row['Nomor Gudang']||'').trim();
                 const savedLocs = locationMap[pNo] || {};
-
                 st.add({
                     id: i + 1, 
                     locType: row['Tipe Lokasi']||'UMUM', 
@@ -1135,7 +1129,6 @@
                     raw: row
                 });
             });
-
             tx.oncomplete = () => {
                 alert("Import Berhasil! Lokasi lama aman.");
                 location.reload();
@@ -1172,4 +1165,3 @@
 </script>
 </body>
 </html>
-
