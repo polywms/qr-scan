@@ -663,11 +663,16 @@ let simpanConflictData = null;
 
 function checkSimpanConflict(item, newBox) {
     const existingLocs = Object.keys(item.locations);
-    const inputQty = parseInt(document.getElementById('simpanQty').value) || 1; // Ambil Qty dari input panel
+    
+    // PERBAIKAN DISINI:
+    // Karena input qty di UI sudah dihapus (mode move total),
+    // kita anggap qty yang akan dipindah adalah seluruh stok sistem.
+    // Jika stok sistem 0 (part baru), default ke 1.
+    const inputQty = item.sysQty > 0 ? item.sysQty : 1; 
 
     // 1. Jika belum punya lokasi -> Langsung Simpan
     if (existingLocs.length === 0) {
-        item.locations[newBox] = (item.sysQty > 0 ? item.sysQty : inputQty); // Default ambil semua sysQty atau input
+        item.locations[newBox] = inputQty; 
         saveDB(item);
         feedback('success');
         showToast(`Disimpan ke ${newBox}`);
@@ -675,15 +680,28 @@ function checkSimpanConflict(item, newBox) {
         return;
     }
 
-    // 2. Jika lokasi sama -> Tambah Qty (Accumulate)
+    // 2. Jika lokasi sama -> Abaikan (Karena ini mode Move Total, tidak perlu tambah qty jika box sama)
+    // Atau jika ingin menambah, bisa diaktifkan logic add-nya. 
+    // Di sini saya buat update qty saja untuk memastikan sinkron.
     if (existingLocs.includes(newBox)) {
-        item.locations[newBox] += inputQty;
+        item.locations[newBox] = inputQty; // Reset ke total sysQty
         saveDB(item);
         feedback('success');
-        showToast(`Qty ditambah di ${newBox}`);
+        showToast(`Stok diupdate di ${newBox}`);
         clearActivePart();
         return;
     }
+
+    // 3. Jika lokasi beda -> KONFLIK (Move or Split)
+    feedback('error'); // Alert sound
+    simpanConflictData = { item, newBox, qty: inputQty };
+    
+    document.getElementById('simpanConflictModal').style.display = 'flex';
+    document.getElementById('scmPart').innerText = item.partNo;
+    document.getElementById('scmOldLoc').innerText = existingLocs.join(', ');
+    document.getElementById('scmNewBox').innerText = newBox;
+    document.getElementById('scmQty').innerText = inputQty;
+}
 
     // 3. Jika lokasi beda -> KONFLIK (Move or Split)
     feedback('error'); // Alert sound
@@ -1123,4 +1141,5 @@ function closeSimpanConflictModal() {
 </script>
 </body>
 </html>
+
 
