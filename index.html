@@ -612,8 +612,9 @@
         document.getElementById('simpanStatusPanel').style.display = isMultiScan ? 'none' : 'none'; 
         document.getElementById('multiScanPanel').style.display = isMultiScan ? 'block' : 'none';
         
-        // UPDATE: Tampilkan checkbox filter hanya saat multi scan aktif
-        document.getElementById('filterNoBoxToggle').style.display = isMultiScan ? 'flex' : 'none';
+        // --- PERBAIKAN: Pastikan logika ini ada ---
+        // Jika Multi Scan ON -> Tampilkan Filter (flex). Jika OFF -> Sembunyikan (none).
+        document.getElementById('filterNoBoxToggle').style.display = isMultiScan ? 'flex' : 'none'; 
 
         if (isMultiScan) {
             clearActivePart();
@@ -1210,16 +1211,25 @@
         
         document.getElementById('scrollTopBtn').style.display = 'none';
 
+        // --- PERBAIKAN LOGIKA TAMPILAN TOMBOL ---
         const multiToggle = document.getElementById('multiScanToggle');
+        const filterToggle = document.getElementById('filterNoBoxToggle'); // Ambil elemen filter
+        const isMulti = document.getElementById('chkMultiScan').checked;
+
         if (id === 'simpan') {
-            multiToggle.style.display = 'flex';
+            // Jika di tab SIMPAN:
+            multiToggle.style.display = 'flex'; // Tombol Multi Scan selalu muncul
+            // Tombol Filter muncul HANYA jika Multi Scan sedang dicentang
+            filterToggle.style.display = isMulti ? 'flex' : 'none'; 
         } else {
-            multiToggle.style.display = 'none';
+            // Jika BUKAN tab SIMPAN (Opname/Data):
+            multiToggle.style.display = 'none'; // Sembunyikan Multi Scan
+            filterToggle.style.display = 'none'; // Sembunyikan Filter juga
         }
 
+        // --- Sisa kode warna header tetap sama ---
         const root = document.documentElement;
         if(id === 'simpan') {
-            const isMulti = document.getElementById('chkMultiScan').checked;
             root.style.setProperty('--active-color', isMulti ? 'var(--purple)' : 'var(--primary)');
             document.querySelector('header').style.background = isMulti ? 'var(--purple)' : 'var(--primary)';
         }
@@ -1311,4 +1321,5 @@
 </script>
 </body>
 </html>
+
 
