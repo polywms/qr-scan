@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>WMS V5: Stable & Scroll</title>
+    <title>WMS V6: Pro Features</title>
     <script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     
@@ -44,6 +44,7 @@
             height: 100vh; 
             overscroll-behavior: none; 
             transition: background 0.3s; 
+            user-select: none; /* Mencegah blok teks tidak sengaja */
         }
         
         /* HEADER FIXED */
@@ -89,6 +90,7 @@
             box-shadow: 0 2px 4px rgba(0,0,0,0.03); transition: border-color 0.3s; 
         }
         .input-wrapper { position: relative; display: flex; gap: 8px; }
+        /* Fix Focus: Pointer events none pada icon agar klik area input maksimal */
         .main-input { 
             width: 100%; padding: 12px 40px 12px 15px; 
             border: 2px solid var(--border); border-radius: 8px; 
@@ -96,8 +98,17 @@
             outline: none; transition: all 0.2s;
         }
         .main-input:focus { background: var(--card); border-color: var(--active-color); box-shadow: 0 0 0 3px rgba(0,0,0,0.05); }
-        .input-icon { position: absolute; right: 15px; top: 50%; transform: translateY(-50%); color: var(--secondary); }
+        .input-icon { position: absolute; right: 15px; top: 50%; transform: translateY(-50%); color: var(--secondary); pointer-events: none; }
         
+        /* MINI HISTORY LOG */
+        #historyLog {
+            font-size: 0.75rem; margin-top: 5px; color: var(--secondary);
+            max-height: 45px; overflow: hidden; display: flex; flex-direction: column; gap: 2px;
+        }
+        .hist-item { display: flex; justify-content: space-between; padding: 2px 5px; border-bottom: 1px dotted #eee; }
+        .hist-item.success { color: #166534; }
+        .hist-item.error { color: #dc2626; }
+
         /* VISUAL FEEDBACK */
         @keyframes flashSuccess { 0% { background-color: rgba(22, 163, 74, 0.3); } 100% { background-color: transparent; } }
         @keyframes flashError { 0% { background-color: rgba(220, 38, 38, 0.3); } 100% { background-color: transparent; } }
@@ -157,6 +168,14 @@
         #toast { visibility: hidden; min-width: 250px; background-color: #333; color: #fff; text-align: center; padding: 12px; position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%); z-index: 3000; border-radius: 8px; font-weight: 500; }
         #toast.show { visibility: visible; animation: fadein 0.3s, fadeout 0.3s 2.5s; }
         
+        /* UNDO BUTTON */
+        #undoBtn { 
+            position: fixed; bottom: 80px; left: 50%; transform: translateX(-50%); 
+            background: #222; color: #fff; padding: 10px 20px; border-radius: 30px;
+            font-size: 0.9rem; font-weight: bold; cursor: pointer; z-index: 2900;
+            display: none; box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+        }
+        
         @keyframes flashRow { 
             0% { background-color: #fef08a; border-left: 5px solid #ca8a04; transform: scale(1.02); } 
             100% { background-color: var(--card); border-left: 1px solid var(--border); transform: scale(1); } 
@@ -175,12 +194,15 @@
             transition: transform 0.2s, background 0.3s;
         }
         .scroll-btn:active { transform: scale(0.9); }
+        
+        /* DATA TAB TOOLS */
+        .data-tools { display: flex; gap: 10px; margin-bottom: 10px; }
     </style>
 </head>
 <body>
 
 <header>
-    <h1>𝄃𝄃𝄂𝄂 WMS V5</h1>
+    <h1>𝄃𝄃𝄂𝄂 WMS V6</h1>
     <button class="header-btn" onclick="toggleMenu()"><i class="fas fa-bars"></i></button>
 </header>
 
@@ -211,14 +233,15 @@
             <input type="text" id="mainInput" class="main-input" placeholder="Scan Part / Box..." inputmode="none" autocomplete="off" onkeydown="handleInputKeyDown(event)">
             <i class="fas fa-barcode input-icon"></i>
         </div>
-        <div style="display:flex; justify-content:space-between; margin-top:8px; align-items:center;">
-            <small style="color:var(--secondary); font-weight:500; height:20px;" id="scanStatusText">Siap Scan...</small>
+        
+        <div id="historyLog"></div>
+
+        <div style="display:flex; justify-content:space-between; margin-top:5px; align-items:center;">
+            <small style="color:var(--secondary); font-weight:500;" id="scanStatusText">Siap Scan...</small>
             <div style="display:flex; gap:15px; font-size:0.8rem; align-items:center;">
-                
                 <label id="multiScanToggle" style="display:flex; align-items:center; gap:5px; color:var(--purple); font-weight:bold;">
                     <input type="checkbox" id="chkMultiScan" onchange="toggleMultiMode()"> Multi Scan
                 </label>
-
                 <label style="display:flex; align-items:center; gap:5px;">
                     <input type="checkbox" id="chkManualType" onchange="toggleKeyboardMode()"> Ketik
                 </label>
@@ -233,7 +256,6 @@
                 <button class="btn-sm btn-danger" onclick="clearMultiBuffer()">Clear</button>
             </div>
             <div id="multiTagsContainer" style="max-height:100px; overflow-y:auto; padding-bottom:5px; display:flex; flex-wrap:wrap; gap:5px;"></div>
-            
             <div style="margin-top:10px; font-size:0.9rem; font-weight:bold; color:var(--purple); animation: pulse 2s infinite; text-align:center;">
                 <i class="fas fa-arrow-right"></i> SCAN BOX UNTUK SET LOKASI
             </div>
@@ -245,11 +267,9 @@
                 <button class="btn-sm btn-danger" onclick="clearActivePart()"><i class="fas fa-times"></i></button>
             </div>
             <div id="activePartDesc" style="font-size:0.9rem; color:var(--secondary); margin-bottom:10px;">-</div>
-            
             <div style="background:#fff; padding:8px; margin-bottom:10px; border-radius:6px; border:1px solid #bfdbfe; font-size:0.9rem;">
                 Lokasi Saat Ini: <b id="activePartLoc" style="color:var(--danger)">-</b>
             </div>
-
             <div style="background:var(--card); padding:10px; border-radius:6px; border:1px dashed var(--primary); text-align:center;">
                 <div style="font-size:0.9rem; font-weight:bold; color:var(--primary); margin-bottom:5px;">
                     AKAN DISIMPAN (QTY 0 / BELUM DIHITUNG)
@@ -259,7 +279,6 @@
                 </div>
             </div>
         </div>
-
         <div id="simpanList" class="list-container"></div>
     </div>
 
@@ -292,12 +311,20 @@
             <div class="segment-btn" onclick="setOpnameFilter('diff', this)">SELISIH</div>
             <div class="segment-btn" onclick="setOpnameFilter('zero', this)">BELUM</div>
         </div>
-
         <div id="opnameList" class="list-container"></div>
         <div id="opnameLoading" style="text-align:center; padding:15px; display:none; color:var(--secondary);">Load more...</div>
     </div>
 
     <div id="tab-data" class="tab-content">
+        <div class="data-tools">
+            <button class="btn btn-warning btn-sm" onclick="toggleNewPartFilter(this)" style="flex:1;">
+                <i class="fas fa-filter"></i> Cuma Part Baru
+            </button>
+            <button class="btn btn-success btn-sm" onclick="downloadNewParts()" style="flex:1;">
+                <i class="fas fa-download"></i> DL Part Baru
+            </button>
+        </div>
+
         <input type="text" id="cariInput" placeholder="Filter Teks..." onkeyup="renderDataList(true)" style="width:100%; padding:10px; border:1px solid var(--border); border-radius:6px; margin-bottom:10px;">
         <div id="dataList" class="list-container"></div>
         <div id="dataLoading" style="text-align:center; padding:15px; display:none; color:var(--secondary);">Load more...</div>
@@ -307,6 +334,8 @@
 <button id="scrollTopBtn" class="scroll-btn" onclick="scrollToTop()">
     <i class="fas fa-arrow-up"></i>
 </button>
+
+<div id="undoBtn" onclick="executeUndo()"><i class="fas fa-undo"></i> BATALKAN (Undo)</div>
 
 <div class="overlay" id="opnameConfirmModal">
     <div class="modal">
@@ -385,7 +414,7 @@
 <div id="toast">Notifikasi</div>
 
 <script>
-    // --- AUDIO & FEEDBACK ---
+    // --- AUDIO & HAPTIC ---
     const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
     
     function feedback(type) {
@@ -394,10 +423,12 @@
             body.classList.add('flash-success');
             setTimeout(() => body.classList.remove('flash-success'), 500);
             playTone(800, 'sine', 0.1);
+            if(navigator.vibrate) navigator.vibrate(50); // Haptic Pendek
         } else if (type === 'error') {
             body.classList.add('flash-error');
             setTimeout(() => body.classList.remove('flash-error'), 500);
             playTone(150, 'sawtooth', 0.3);
+            if(navigator.vibrate) navigator.vibrate([100, 50, 100]); // Haptic Panjang
         } else if (type === 'scan') {
             playTone(1200, 'sine', 0.05);
         }
@@ -416,14 +447,32 @@
         osc.stop(audioCtx.currentTime + duration);
     }
 
-    // UPDATE 1: Status tidak otomatis hilang (Timeout dihapus/dikomentari)
-    let statusTimeout;
     function setStatus(msg) {
         const el = document.getElementById('scanStatusText');
         el.innerText = msg;
-        // clearTimeout(statusTimeout);
-        // statusTimeout = setTimeout(() => { el.innerText = "Siap Scan..."; }, 4000); 
     }
+
+    // --- WAKE LOCK & FOCUS GUARD ---
+    let wakeLock = null;
+    async function requestWakeLock() {
+        try {
+            wakeLock = await navigator.wakeLock.request('screen');
+            console.log('Screen Wake Lock active');
+            wakeLock.addEventListener('release', () => console.log('Screen Wake Lock released'));
+        } catch (err) { console.log(`${err.name}, ${err.message}`); }
+    }
+    document.addEventListener('visibilitychange', async () => {
+        if (wakeLock !== null && document.visibilityState === 'visible') await requestWakeLock();
+    });
+
+    // Aggressive Focus: Klik dimanapun (kecuali input/button) balikin fokus ke scanner
+    document.addEventListener('click', (e) => {
+        const t = e.target;
+        const interactive = ['INPUT','BUTTON','SELECT','TEXTAREA','A','LABEL'];
+        if (!interactive.includes(t.tagName) && !t.closest('button') && !t.closest('.modal')) {
+            document.getElementById('mainInput').focus();
+        }
+    });
 
     // --- DB CONFIG ---
     const DB_NAME = 'WMS_Stock_v10';
@@ -445,26 +494,25 @@
     let multiBuffer = []; 
     let editId = null;
 
+    let filterNewOnly = false; // Filter Part Baru
+    let lastAction = null; // Undo State
+    let scanHistory = []; // Mini Log
+
     // --- INIT ---
     window.onload = async () => {
         await initDB();
         if(localStorage.getItem('darkMode') === 'true') document.body.classList.add('dark-mode');
         
+        requestWakeLock(); // Aktifkan Layar Terus Nyala
+        
         document.getElementById('mainInput').focus();
-        document.addEventListener('click', (e) => {
-            if(e.target.tagName !== 'INPUT' && e.target.tagName !== 'BUTTON' && e.target.tagName !== 'SELECT' && !e.target.closest('.modal')) {
-                document.getElementById('mainInput').focus();
-            }
-        });
-
-        // Setup Scroll Listeners untuk tombol ScrollToTop
+        
+        // Scroll Listeners
         const scrollBtn = document.getElementById('scrollTopBtn');
         const setupScroll = (id, callback) => {
             const el = document.getElementById(id);
             if(el) el.addEventListener('scroll', () => {
-                // Load More logic
                 if(el.scrollTop + el.clientHeight >= el.scrollHeight - 50) callback();
-                // Scroll Button Logic
                 if (el.scrollTop > 300) scrollBtn.style.display = 'flex';
                 else scrollBtn.style.display = 'none';
             });
@@ -474,12 +522,9 @@
         setupScroll('tab-data', () => { renderLimit += 50; renderDataList(false); });
     };
 
-    // UPDATE 3: Fungsi Scroll to Top
     function scrollToTop() {
         const activeEl = document.querySelector('.tab-content.active');
-        if(activeEl) {
-            activeEl.scrollTo({ top: 0, behavior: 'smooth' });
-        }
+        if(activeEl) activeEl.scrollTo({ top: 0, behavior: 'smooth' });
     }
 
     function initDB() {
@@ -579,6 +624,9 @@
         if(code.includes('|')) code = code.split('|')[0];
         code = code.trim().toUpperCase();
 
+        // ADD TO HISTORY LOG
+        addToHistory(code);
+
         const item = filteredItems.find(i => i.partNo.toUpperCase() === code);
         const boxPattern = /^[A-Z][0-9]-[0-9]{2}$/;
         const isBox = boxPattern.test(code);
@@ -621,6 +669,7 @@
                         saveDB(item);
                         feedback('success');
                         showToast(`${item.partNo}: Qty +1`);
+                        registerUndo('opname_add', item.id, activeBoxFilter); // Enable Undo
                         handleOpnameRender();
                     } else {
                         feedback('scan');
@@ -653,6 +702,56 @@
         }
     }
 
+    // --- HISTORY LOGIC ---
+    function addToHistory(code) {
+        scanHistory.unshift({ code, time: new Date().toLocaleTimeString() });
+        if(scanHistory.length > 3) scanHistory.pop();
+        
+        const div = document.getElementById('historyLog');
+        div.innerHTML = scanHistory.map(h => 
+            `<div class="hist-item"><span>${h.code}</span><small>${h.time}</small></div>`
+        ).join('');
+    }
+
+    // --- UNDO LOGIC ---
+    function registerUndo(type, itemId, box) {
+        lastAction = { type, itemId, box, time: Date.now() };
+        const btn = document.getElementById('undoBtn');
+        btn.style.display = 'block';
+        setTimeout(() => { 
+            if(Date.now() - lastAction.time >= 5000) btn.style.display = 'none'; 
+        }, 5000);
+    }
+
+    function executeUndo() {
+        if(!lastAction) return;
+        const { type, itemId, box } = lastAction;
+        const item = localItems.find(i=>i.id===itemId);
+        
+        if (item) {
+            if(type === 'opname_add') {
+                if(item.locations[box] > 0) {
+                    item.locations[box]--;
+                    if(item.locations[box] === 0) delete item.locations[box]; // Clean if 0
+                    saveDB(item);
+                    feedback('success');
+                    showToast("Undo Berhasil (Qty -1)");
+                    // Refresh
+                    if(currentTab==='opname') handleOpnameRender();
+                }
+            } else if (type === 'simpan_set') {
+                delete item.locations[box];
+                saveDB(item);
+                feedback('success');
+                showToast("Undo Berhasil (Hapus Lokasi)");
+                if(currentTab==='simpan') selectPartSimpan(item);
+            }
+        }
+        document.getElementById('undoBtn').style.display = 'none';
+        lastAction = null;
+    }
+
+    // --- LOGIC SIMPAN ---
     function checkSimpanConflict(item, newBox) {
         const existingLocs = Object.keys(item.locations);
         if (existingLocs.length === 0) {
@@ -660,6 +759,7 @@
             saveDB(item);
             feedback('success');
             showToast(`Lokasi diset: ${newBox}`);
+            registerUndo('simpan_set', item.id, newBox);
             clearActivePart();
             return;
         }
@@ -696,6 +796,7 @@
     function closeSimpanConflictModal() {
         document.getElementById('simpanConflictModal').style.display = 'none';
         simpanConflictData = null;
+        document.getElementById('mainInput').focus();
     }
 
     function processMultiBatchMove(box) {
@@ -709,36 +810,25 @@
         clearMultiBuffer();
     }
 
-    // UPDATE 2: Fix Multi Scan Buffer UI
     function addToMultiBuffer(item) {
-        // CEK DUPLIKAT
         const exists = multiBuffer.some(i => i.partNo === item.partNo);
-        if (exists) {
-            showToast("Part sudah ada di list!");
-            return; 
-        }
-
+        if (exists) { showToast("Part sudah ada di list!"); return; }
         multiBuffer.push(item);
-        renderMultiBuffer(); // Render ulang seluruh list agar stabil
-        
-        // Highlight row jika ada di list bawah
+        renderMultiBuffer(); 
         const row = document.getElementById(`simpan-row-${item.id}`);
         if(row) row.classList.add('selected');
     }
 
-    // Fungsi helper baru untuk render multi scan
     function renderMultiBuffer() {
         const container = document.getElementById('multiTagsContainer');
-        container.innerHTML = ''; // Reset container
-        
+        container.innerHTML = ''; 
         multiBuffer.forEach(item => {
             const locInfo = Object.keys(item.locations).join(',') || 'Baru';
             const tag = document.createElement('span');
             tag.className = 'multi-tag';
             tag.innerHTML = `${item.partNo} <small style="opacity:0.8">(${locInfo})</small>`;
-            container.prepend(tag); // Tampilkan paling baru di kiri/atas
+            container.prepend(tag);
         });
-        
         document.getElementById('multiCount').innerText = multiBuffer.length;
     }
 
@@ -789,6 +879,7 @@
     function closeOpnameConfirmModal() {
         document.getElementById('opnameConfirmModal').style.display = 'none';
         opnameConflictData = null;
+        document.getElementById('mainInput').focus();
     }
 
     function showOpnameInfo(item) {
@@ -935,7 +1026,32 @@
         document.getElementById('opnameLoading').style.display = (renderLimit < dataset.length) ? 'block' : 'none';
     }
 
-    // --- DATA TAB ---
+    // --- DATA TAB & NEW PART LOGIC ---
+    function toggleNewPartFilter(btn) {
+        filterNewOnly = !filterNewOnly;
+        if(filterNewOnly) {
+            btn.classList.add('btn-warning');
+            btn.classList.remove('btn-outline');
+            btn.innerHTML = '<i class="fas fa-check"></i> Cuma Part Baru';
+        } else {
+            btn.classList.remove('btn-warning');
+            btn.classList.add('btn-outline');
+            btn.innerHTML = '<i class="fas fa-filter"></i> Cuma Part Baru';
+        }
+        renderDataList(true);
+    }
+
+    function downloadNewParts() {
+        const newParts = localItems.filter(i => i.desc === 'PART BARU');
+        if(newParts.length === 0) { alert('Tidak ada Part Baru.'); return; }
+        
+        const data = newParts.map(i => ({ 'Part Number': i.partNo, 'Lokasi': Object.keys(i.locations).join(', '), 'Status': 'Perlu Update Nama' }));
+        const ws = XLSX.utils.json_to_sheet(data);
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, "Part Baru");
+        XLSX.writeFile(wb, "Daftar_Part_Baru.xlsx");
+    }
+
     function renderDataList(reset = false) {
         if(reset) renderLimit = 50;
         const q = document.getElementById('cariInput').value.toLowerCase();
@@ -943,6 +1059,7 @@
         if(reset || container.innerHTML === '') container.innerHTML = '';
         
         let dataset = filteredItems;
+        if(filterNewOnly) dataset = dataset.filter(i => i.desc === 'PART BARU'); // FILTER LOGIC
         if(q) dataset = dataset.filter(i => i.partNo.toLowerCase().includes(q) || i.desc.toLowerCase().includes(q));
         
         const show = dataset.slice(0, renderLimit);
@@ -953,8 +1070,12 @@
             const total = Object.values(i.locations).reduce((a,b)=>a+b,0);
             const locs = Object.entries(i.locations).map(([k,v])=>`${k}(${v})`).join(', ');
             let color = total!==i.sysQty ? 'var(--danger)' : (total>0 ? 'var(--opname)' : 'var(--text)');
+            
+            // Highlight Part Baru
+            let cardStyle = i.desc === 'PART BARU' ? 'border-left: 5px solid #ca8a04; background:#fffbeb;' : '';
+
             html += `
-            <div class="item-card" id="data-row-${i.id}" onclick="openEditModal(${i.id})">
+            <div class="item-card" id="data-row-${i.id}" onclick="openEditModal(${i.id})" style="${cardStyle}">
                 <div style="flex:1;">
                     <div style="display:flex; justify-content:space-between;">
                         <b style="font-size:1rem;">${i.partNo}</b> 
@@ -1047,6 +1168,7 @@
         });
         saveDB(item); document.getElementById('editModal').style.display='none'; 
         handleOpnameRender(); renderDataList(false);
+        document.getElementById('mainInput').focus();
     }
     
     function saveDB(item) {
@@ -1061,7 +1183,6 @@
         document.querySelectorAll('.nav-item').forEach(e=>e.classList.remove('active'));
         event.currentTarget.classList.add('active');
         
-        // Update tampilan tombol scroll
         document.getElementById('scrollTopBtn').style.display = 'none';
 
         const multiToggle = document.getElementById('multiScanToggle');
