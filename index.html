@@ -238,11 +238,17 @@
 
         <div style="display:flex; justify-content:space-between; margin-top:5px; align-items:center;">
             <small style="color:var(--secondary); font-weight:500;" id="scanStatusText">Siap Scan...</small>
-            <div style="display:flex; gap:15px; font-size:0.8rem; align-items:center;">
-                <label id="multiScanToggle" style="display:flex; align-items:center; gap:5px; color:var(--purple); font-weight:bold;">
+            <div style="display:flex; gap:10px; font-size:0.8rem; align-items:center;">
+                
+                <label id="multiScanToggle" style="display:flex; align-items:center; gap:3px; color:var(--purple); font-weight:bold;">
                     <input type="checkbox" id="chkMultiScan" onchange="toggleMultiMode()"> Multi Scan
                 </label>
-                <label style="display:flex; align-items:center; gap:5px;">
+
+                <label id="filterNoBoxToggle" style="display:none; align-items:center; gap:3px; color:#c2410c; font-weight:bold;">
+                    <input type="checkbox" id="chkFilterNoBox" onchange="renderMultiBuffer()"> Belum Box
+                </label>
+
+                <label style="display:flex; align-items:center; gap:3px;">
                     <input type="checkbox" id="chkManualType" onchange="toggleKeyboardMode()"> Ketik
                 </label>
             </div>
@@ -606,6 +612,9 @@
         document.getElementById('simpanStatusPanel').style.display = isMultiScan ? 'none' : 'none'; 
         document.getElementById('multiScanPanel').style.display = isMultiScan ? 'block' : 'none';
         
+        // UPDATE: Tampilkan checkbox filter hanya saat multi scan aktif
+        document.getElementById('filterNoBoxToggle').style.display = isMultiScan ? 'flex' : 'none';
+
         if (isMultiScan) {
             clearActivePart();
             root.style.setProperty('--active-color', 'var(--purple)');
@@ -821,15 +830,31 @@
 
     function renderMultiBuffer() {
         const container = document.getElementById('multiTagsContainer');
+        const filterActive = document.getElementById('chkFilterNoBox').checked; // Cek status filter
         container.innerHTML = ''; 
+        
+        let displayCount = 0;
+
         multiBuffer.forEach(item => {
-            const locInfo = Object.keys(item.locations).join(',') || 'Baru';
+            const hasLoc = Object.keys(item.locations).length > 0;
+            const locInfo = hasLoc ? Object.keys(item.locations).join(',') : 'Baru';
+            
+            // LOGIKA FILTER: Jika filter aktif DAN part sudah punya lokasi, jangan tampilkan
+            if (filterActive && hasLoc) return;
+
+            displayCount++;
             const tag = document.createElement('span');
             tag.className = 'multi-tag';
+            // Beri warna merah jika belum ada lokasi agar lebih jelas
+            const colorStyle = !hasLoc ? 'background:#fb923c; color:#fff;' : ''; 
+            
+            tag.style.cssText = colorStyle;
             tag.innerHTML = `${item.partNo} <small style="opacity:0.8">(${locInfo})</small>`;
             container.prepend(tag);
         });
-        document.getElementById('multiCount').innerText = multiBuffer.length;
+        
+        // Update hitungan (Tampilkan jumlah yang terlihat / Total di buffer)
+        document.getElementById('multiCount').innerText = `${displayCount}/${multiBuffer.length}`;
     }
 
     function createNewItem(code) {
@@ -1286,3 +1311,4 @@
 </script>
 </body>
 </html>
+
