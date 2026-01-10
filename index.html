@@ -612,15 +612,16 @@
         document.getElementById('simpanStatusPanel').style.display = isMultiScan ? 'none' : 'none'; 
         document.getElementById('multiScanPanel').style.display = isMultiScan ? 'block' : 'none';
         
-        // --- PERBAIKAN: Pastikan logika ini ada ---
-        // Jika Multi Scan ON -> Tampilkan Filter (flex). Jika OFF -> Sembunyikan (none).
-        document.getElementById('filterNoBoxToggle').style.display = isMultiScan ? 'flex' : 'none'; 
+        // Tampilkan/Sembunyikan Filter
+        document.getElementById('filterNoBoxToggle').style.display = isMultiScan ? 'flex' : 'none';
 
         if (isMultiScan) {
             clearActivePart();
             root.style.setProperty('--active-color', 'var(--purple)');
             document.querySelector('header').style.background = 'var(--purple)';
             setStatus("Mode Multi Scan Aktif");
+            
+            renderMultiBuffer(); // <--- TAMBAHAN: Paksa render ulang saat mode aktif
         } else {
             clearMultiBuffer();
             root.style.setProperty('--active-color', 'var(--primary)');
@@ -830,33 +831,44 @@
     }
 
     function renderMultiBuffer() {
-    const container = document.getElementById('multiTagsContainer');
-    // Ambil status centang (true/false)
-    const filterActive = document.getElementById('chkFilterNoBox').checked; 
-    container.innerHTML = ''; 
-    
-    let displayCount = 0;
+        const container = document.getElementById('multiTagsContainer');
+        const filterEl = document.getElementById('chkFilterNoBox');
+        
+        // Safety check: Jika elemen belum siap
+        if (!container || !filterEl) return;
 
-    multiBuffer.forEach(item => {
-        const hasLoc = Object.keys(item.locations).length > 0;
-        const locInfo = hasLoc ? Object.keys(item.locations).join(',') : 'Baru';
+        const filterActive = filterEl.checked;
+        container.innerHTML = ''; 
         
-        // --- LOGIKA FILTER UTAMA ---
-        // Jika box dicentang (filterActive = true) DAN barang sudah punya lokasi (hasLoc = true)
-        // Maka: RETURN (jangan tampilkan barang ini, lanjut ke barang berikutnya)
-        if (filterActive && hasLoc) return;
+        let displayCount = 0;
 
-        displayCount++; // Hitung hanya yang ditampilkan
+        multiBuffer.forEach(item => {
+            // Pengaman: Pastikan locations dianggap object kosong jika null/undefined
+            const locs = item.locations || {};
+            const hasLoc = Object.keys(locs).length > 0;
+            const locInfo = hasLoc ? Object.keys(locs).join(',') : 'Baru';
+            
+            // --- LOGIKA FILTER ---
+            // Jika Box dicentang DAN Barang punya lokasi -> SEMBUNYIKAN (Skip)
+            if (filterActive && hasLoc) return;
+
+            displayCount++;
+            
+            const tag = document.createElement('span');
+            tag.className = 'multi-tag';
+            
+            // Visual: Merah jika belum ada box (Baru/Kosong), Ungu jika sudah ada
+            const colorStyle = !hasLoc ? 'background:#fb923c; color:#fff;' : ''; 
+            
+            tag.style.cssText = colorStyle;
+            tag.innerHTML = `${item.partNo} <small style="opacity:0.8">(${locInfo})</small>`;
+            container.prepend(tag);
+        });
         
-        const tag = document.createElement('span');
-        tag.className = 'multi-tag';
-        // Warna oranye jika belum ada box agar mencolok
-        const colorStyle = !hasLoc ? 'background:#fb923c; color:#fff;' : ''; 
-        
-        tag.style.cssText = colorStyle;
-        tag.innerHTML = `${item.partNo} <small style="opacity:0.8">(${locInfo})</small>`;
-        container.prepend(tag);
-    });
+        // Update Counter
+        const counterEl = document.getElementById('multiCount');
+        if(counterEl) counterEl.innerText = `${displayCount}/${multiBuffer.length}`;
+    }
     
     // Update teks jumlah: (Yang Tampil / Total Buffer)
     document.getElementById('multiCount').innerText = `${displayCount}/${multiBuffer.length}`;
@@ -1215,23 +1227,28 @@
         
         document.getElementById('scrollTopBtn').style.display = 'none';
 
-        // --- PERBAIKAN LOGIKA TAMPILAN TOMBOL ---
+        // --- UPDATE LOGIKA TOMBOL & FILTER ---
         const multiToggle = document.getElementById('multiScanToggle');
-        const filterToggle = document.getElementById('filterNoBoxToggle'); // Ambil elemen filter
+        const filterToggle = document.getElementById('filterNoBoxToggle');
+        const chkFilter = document.getElementById('chkFilterNoBox'); // Ambil checkbox filter
         const isMulti = document.getElementById('chkMultiScan').checked;
 
         if (id === 'simpan') {
-            // Jika di tab SIMPAN:
-            multiToggle.style.display = 'flex'; // Tombol Multi Scan selalu muncul
-            // Tombol Filter muncul HANYA jika Multi Scan sedang dicentang
+            multiToggle.style.display = 'flex';
             filterToggle.style.display = isMulti ? 'flex' : 'none'; 
         } else {
-            // Jika BUKAN tab SIMPAN (Opname/Data):
-            multiToggle.style.display = 'none'; // Sembunyikan Multi Scan
-            filterToggle.style.display = 'none'; // Sembunyikan Filter juga
+            multiToggle.style.display = 'none';
+            filterToggle.style.display = 'none';
+            
+            // RESET FILTER SAAT PINDAH TAB (PENTING)
+            // Agar saat balik lagi, filter tidak nyangkut
+            if(chkFilter.checked) {
+                chkFilter.checked = false;
+                // Kita tidak panggil renderMultiBuffer() disini karena containernya sedang hidden
+            }
         }
 
-        // --- Sisa kode warna header tetap sama ---
+        // ... (Kode styling warna header di bawahnya biarkan saja) ...
         const root = document.documentElement;
         if(id === 'simpan') {
             root.style.setProperty('--active-color', isMulti ? 'var(--purple)' : 'var(--primary)');
@@ -1247,7 +1264,7 @@
         }
 
         if(id === 'opname') handleOpnameRender();
-        if(id === 'simpan') renderSimpanList(true);
+        if(id === 'simpan') renderSimpanList(true); // Ini merender list utama, bukan buffer
         if(id === 'data') renderDataList(true);
         document.getElementById('mainInput').focus();
     }
@@ -1325,6 +1342,7 @@
 </script>
 </body>
 </html>
+
 
 
 
