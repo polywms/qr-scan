@@ -553,36 +553,53 @@ const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
         document.getElementById('mainInput').focus();
     }
     function processScan(code) {
-        if(code.includes('|')) code = code.split('|')[0];
-        code = code.trim().toUpperCase();
-        addToHistory(code);
-        const item = filteredItems.find(i => i.partNo.toUpperCase() === code);
-        const boxPattern = /^[A-Z][0-9]-[0-9]{2}$/;
-        const isBox = boxPattern.test(code);
-        if (currentTab === 'simpan') {
-            if (item) {
-                feedback('scan');
-                if (isMultiScan) addToMultiBuffer(item);
-                else { selectPartSimpan(item); setStatus(`Part: ${item.partNo}`); }
-            } else {
-                if (isBox) {
-                    if (isMultiScan) {
-                        if (multiBuffer.length > 0) processMultiBatchMove(code);
-                        else { feedback('error'); setStatus("Buffer Kosong!"); }
-                    } else {
-                        if (tempPart) checkSimpanConflict(tempPart, code);
-                        else { feedback('error'); showToast("Scan Part Dulu!"); }
+    if (code.includes('|')) code = code.split('|')[0];
+    code = code.trim().toUpperCase();
+    addToHistory(code);
+    const item = filteredItems.find(i => i.partNo.toUpperCase() === code);
+    
+    // PERBAIKAN: Regex dilonggarkan agar lebih fleksibel (contoh: RAK-01, GUDANG-A, A1-01)
+    const boxPattern = /^[A-Z0-9]+[-][A-Z0-9]+$/;
+    const isBox = boxPattern.test(code);
+
+    if (currentTab === 'simpan') {
+        if (item) {
+            feedback('scan');
+            if (isMultiScan) addToMultiBuffer(item);
+            else { selectPartSimpan(item); setStatus(`Part: ${item.partNo}`); }
+        } else {
+            if (isBox) {
+                if (isMultiScan) {
+                    if (multiBuffer.length > 0) {
+                        // PERBAIKAN: Cek apakah ada part di buffer yang sudah punya lokasi lama
+                        const hasConflicts = multiBuffer.some(i => Object.keys(i.locations).length > 0);
+                        if (hasConflicts) {
+                            // Tanya user mau ditimpa (Move) atau ditambah (Split)
+                            if (confirm(`Peringatan: Beberapa part sudah punya lokasi lama.\n\n[OK] = PINDAH (Hapus lokasi lama)\n[Batal] = SPLIT (Tambah ke ${code} tanpa menghapus yang lama)`)) {
+                                processMultiBatchMove(code, 'move');
+                            } else {
+                                processMultiBatchMove(code, 'split');
+                            }
+                        } else {
+                            processMultiBatchMove(code, 'split');
+                        }
                     }
+                    else { feedback('error'); setStatus("Buffer Kosong!"); }
                 } else {
-                    if(confirm(`Kode "${code}" Baru. Buat Part?`)) {
-                        const newItem = createNewItem(code);
-                        if(isMultiScan) addToMultiBuffer(newItem);
-                        else selectPartSimpan(newItem);
-                    }
+                    if (tempPart) checkSimpanConflict(tempPart, code);
+                    else { feedback('error'); showToast("Scan Part Dulu!"); }
+                }
+            } else {
+                if (confirm(`Kode "${code}" Baru. Buat Part?`)) {
+                    const newItem = createNewItem(code);
+                    if (isMultiScan) addToMultiBuffer(newItem);
+                    else selectPartSimpan(newItem);
                 }
             }
-            return;
         }
+        return;
+    }
+
         if (currentTab === 'opname') {
             if (activeBoxFilter) {
                 if (isBox) { feedback('scan'); setOpnameBoxFilter(code); return; }
@@ -631,93 +648,122 @@ const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
             `<div class="hist-item"><span>${h.code}</span><small>${h.time}</small></div>`
         ).join('');
     }
-    function registerUndo(type, itemId, box) {
-        lastAction = { type, itemId, box, time: Date.now() };
-        const btn = document.getElementById('undoBtn');
-        btn.style.display = 'block';
-        setTimeout(() => { 
-            if(Date.now() - lastAction.time >= 5000) btn.style.display = 'none'; 
-        }, 5000);
-    }
-    function executeUndo() {
-        if(!lastAction) return;
-        const { type, itemId, box } = lastAction;
-        const item = localItems.find(i=>i.id===itemId);
-        if (item) {
-            if(type === 'opname_add') {
-                if(item.locations[box] > 0) {
-                    item.locations[box]--;
-                    if(item.locations[box] === 0) delete item.locations[box]; 
-                    saveDB(item);
-                    feedback('success');
-                    showToast("Undo Berhasil (Qty -1)");
-                    if(currentTab==='opname') handleOpnameRender();
-                }
-            } else if (type === 'simpan_set') {
-                delete item.locations[box];
+function registerUndo(type, itemId, box, oldState = null) {
+    // PERBAIKAN: Menambahkan parameter oldState untuk menyimpan backup data lokasi
+    lastAction = { type, itemId, box, oldState, time: Date.now() };
+    const btn = document.getElementById('undoBtn');
+    btn.style.display = 'block';
+    setTimeout(() => { 
+        if (lastAction && Date.now() - lastAction.time >= 4900) btn.style.display = 'none'; 
+    }, 5000);
+}
+
+function executeUndo() {
+    if (!lastAction) return;
+    const { type, itemId, box, oldState } = lastAction;
+    const item = localItems.find(i => i.id === itemId);
+    
+    if (item) {
+        if (type === 'opname_add') {
+            if (item.locations[box] > 0) {
+                item.locations[box]--;
+                if (item.locations[box] === 0) delete item.locations[box]; 
                 saveDB(item);
                 feedback('success');
-                showToast("Undo Berhasil (Hapus Lokasi)");
-                if(currentTab==='simpan') selectPartSimpan(item);
+                showToast("Undo Berhasil (Qty -1)");
+                if (currentTab === 'opname') handleOpnameRender();
             }
-        }
-        document.getElementById('undoBtn').style.display = 'none';
-        lastAction = null;
-    }
-    function checkSimpanConflict(item, newBox) {
-        const existingLocs = Object.keys(item.locations);
-        if (existingLocs.length === 0) {
-            item.locations[newBox] = 0; 
+        } else if (type === 'simpan_set' || type === 'simpan_conflict') {
+            // PERBAIKAN: Mengembalikan wujud object locations seperti semula
+            if (oldState) {
+                item.locations = JSON.parse(JSON.stringify(oldState));
+            } else {
+                delete item.locations[box];
+            }
             saveDB(item);
             feedback('success');
-            showToast(`Lokasi diset: ${newBox}`);
-            registerUndo('simpan_set', item.id, newBox);
-            clearActivePart();
-            return;
+            showToast("Undo Berhasil (Lokasi dikembalikan)");
+            if (currentTab === 'simpan') {
+                if (!isMultiScan) selectPartSimpan(item);
+                renderSimpanList(false);
+            }
         }
-        if (existingLocs.includes(newBox)) {
-            showToast(`Part sudah ada di ${newBox}`);
-            clearActivePart();
-            return;
-        }
-        feedback('error');
-        simpanConflictData = { item, newBox }; 
-        document.getElementById('simpanConflictModal').style.display = 'flex';
-        document.getElementById('scmPart').innerText = item.partNo;
-        document.getElementById('scmOldLoc').innerText = existingLocs.join(', ');
-        document.getElementById('scmNewBox').innerText = newBox;
     }
-    function executeSimpanAction(action) {
-        if(!simpanConflictData) return;
-        const { item, newBox } = simpanConflictData;
-        if (action === 'move') {
-            item.locations = {}; 
-            item.locations[newBox] = 0;
-            showToast(`Pindah Lokasi ke ${newBox}`);
-        } else if (action === 'split') {
-            item.locations[newBox] = 0; 
-            showToast(`Tambah Lokasi: ${newBox}`);
-        }
+    document.getElementById('undoBtn').style.display = 'none';
+    lastAction = null;
+}
+function checkSimpanConflict(item, newBox) {
+    const existingLocs = Object.keys(item.locations);
+    
+    // PERBAIKAN: Buat copy state lama sebelum dirubah
+    const oldState = JSON.parse(JSON.stringify(item.locations)); 
+
+    if (existingLocs.length === 0) {
+        item.locations[newBox] = 0; 
         saveDB(item);
         feedback('success');
-        closeSimpanConflictModal();
+        showToast(`Lokasi diset: ${newBox}`);
+        registerUndo('simpan_set', item.id, newBox, oldState);
         clearActivePart();
+        return;
     }
+    if (existingLocs.includes(newBox)) {
+        showToast(`Part sudah ada di ${newBox}`);
+        clearActivePart();
+        return;
+    }
+    feedback('error');
+    // Bawa oldState ke Modal untuk persiapan eksekusi
+    simpanConflictData = { item, newBox, oldState }; 
+    document.getElementById('simpanConflictModal').style.display = 'flex';
+    document.getElementById('scmPart').innerText = item.partNo;
+    document.getElementById('scmOldLoc').innerText = existingLocs.join(', ');
+    document.getElementById('scmNewBox').innerText = newBox;
+}
+
+function executeSimpanAction(action) {
+    if (!simpanConflictData) return;
+    const { item, newBox, oldState } = simpanConflictData;
+    
+    // Daftarkan Undo dengan kondisi state sebelum di-move/split
+    registerUndo('simpan_conflict', item.id, newBox, oldState);
+
+    if (action === 'move') {
+        item.locations = {}; // Lokasi lama dihapus
+        item.locations[newBox] = 0;
+        showToast(`Pindah Lokasi ke ${newBox}`);
+    } else if (action === 'split') {
+        item.locations[newBox] = 0; // Lokasi lama tetap aman
+        showToast(`Tambah Lokasi: ${newBox}`);
+    }
+    saveDB(item);
+    feedback('success');
+    closeSimpanConflictModal();
+    clearActivePart();
+    renderSimpanList(false); // Update tampilan list
+}
     function closeSimpanConflictModal() {
         document.getElementById('simpanConflictModal').style.display = 'none';
         simpanConflictData = null;
         document.getElementById('mainInput').focus();
     }
-    function processMultiBatchMove(box) {
-        multiBuffer.forEach(item => {
-            item.locations = {}; 
+    // PERBAIKAN: Tambah parameter actionType untuk membedakan Move dan Split
+function processMultiBatchMove(box, actionType = 'move') {
+    multiBuffer.forEach(item => {
+        if (actionType === 'move') {
+            item.locations = {}; // Hapus semua lokasi lama
+        }
+        // Tambahkan lokasi baru jika belum ada
+        if (item.locations[box] === undefined) {
             item.locations[box] = 0; 
-            saveDB(item);
-        });
-        feedback('success');
-        showToast(`${multiBuffer.length} Item Lokasi diset ke ${box}`);
-        clearMultiBuffer();
-    }
+        }
+        saveDB(item);
+    });
+    feedback('success');
+    showToast(`${multiBuffer.length} Item berhasil di-${actionType} ke ${box}`);
+    clearMultiBuffer();
+    renderSimpanList(false); 
+}
     function addToMultiBuffer(item) {
         const exists = multiBuffer.some(i => i.partNo === item.partNo);
         if (exists) { showToast("Part sudah ada di list!"); return; }
@@ -1037,14 +1083,19 @@ const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
         }
     }
     function addManualLoc() {
-        const box = document.getElementById('editNewBox').value.toUpperCase();
-        const qty = parseInt(document.getElementById('editNewQty').value);
-        if(box && qty !== isNaN) {
-            const item = localItems.find(i=>i.id===editId);
-            item.locations[box] = qty || 0; 
-            saveDB(item); openEditModal(editId);
-        }
+    const box = document.getElementById('editNewBox').value.toUpperCase();
+    const qty = parseInt(document.getElementById('editNewQty').value);
+    
+    // PERBAIKAN: Menggunakan !isNaN(qty) yang benar
+    if (box && !isNaN(qty)) {
+        const item = localItems.find(i => i.id === editId);
+        item.locations[box] = qty || 0; 
+        saveDB(item); 
+        openEditModal(editId);
+    } else {
+        showToast("Box atau Qty tidak valid!");
     }
+}
     function saveManualEdit() {
         const item = localItems.find(i=>i.id===editId);
         document.querySelectorAll('.edit-qty-input').forEach(inp => {
