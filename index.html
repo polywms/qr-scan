@@ -10,6 +10,7 @@
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>
+    <script src="https://unpkg.com/html5-qrcode"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     
     <style>
@@ -193,9 +194,11 @@
 
     <div class="scanner-bar">
         <div class="input-wrapper">
-            <input type="text" id="mainInput" class="main-input" placeholder="Scan Part / Box..." inputmode="none" autocomplete="off" onkeydown="handleInputKeyDown(event)">
-            <i class="fas fa-barcode input-icon"></i>
-        </div>
+    <input type="text" id="mainInput" class="main-input" placeholder="Scan Part / Box..." inputmode="none" autocomplete="off" onkeydown="handleInputKeyDown(event)">
+    <div style="position: absolute; right: 5px; top: 50%; transform: translateY(-50%); display:flex; gap:5px; z-index:10;">
+        <button onclick="openCameraScanner()" style="background:var(--active-color); color:white; border:none; padding:8px 12px; border-radius:6px; cursor:pointer;"><i class="fas fa-camera"></i></button>
+    </div>
+</div>
         
         <div id="historyLog"></div>
 
@@ -379,7 +382,13 @@
         <button class="btn btn-danger" onclick="clearData()">Reset Database</button>
     </div>
 </div>
-
+<div class="overlay" id="cameraModal">
+    <div class="modal" style="text-align:center; padding: 15px;">
+        <h3 style="margin-top:0;">Kamera Scanner</h3>
+        <div id="reader" style="width: 100%; min-height: 250px; border-radius:8px; overflow:hidden; border:2px solid var(--border); margin-bottom:15px;"></div>
+        <button class="btn btn-danger" onclick="closeCameraScanner()"><i class="fas fa-times"></i> Tutup Kamera</button>
+    </div>
+</div>
 <div id="toast">Notifikasi</div>
 
 <script>
@@ -1252,6 +1261,42 @@ function processMultiBatchMove(box, actionType = 'move') {
                 });
         });
     }
+
+    let html5QrcodeScanner = null;
+
+function openCameraScanner() {
+    document.getElementById('cameraModal').style.display = 'flex';
+    
+    // Inisialisasi scanner
+    html5QrcodeScanner = new Html5QrcodeScanner(
+        "reader", 
+        { fps: 10, qrbox: {width: 250, height: 250}, aspectRatio: 1.0 }, 
+        /* verbose= */ false
+    );
+    
+    html5QrcodeScanner.render(onScanSuccess, onScanError);
+}
+
+function onScanSuccess(decodedText, decodedResult) {
+    // Matikan kamera dan tutup modal
+    closeCameraScanner();
+    
+    // Kirim hasil scan ke fungsi utama
+    processScan(decodedText);
+}
+
+function onScanError(errorMessage) {
+    // Abaikan error ini karena scanner terus mencoba membaca setiap frame
+}
+
+function closeCameraScanner() {
+    document.getElementById('cameraModal').style.display = 'none';
+    if (html5QrcodeScanner) {
+        html5QrcodeScanner.clear().catch(err => console.error("Gagal mematikan kamera", err));
+        html5QrcodeScanner = null;
+    }
+    document.getElementById('mainInput').focus();
+}
 </script>
 
 </body>
