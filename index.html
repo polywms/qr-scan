@@ -256,10 +256,10 @@
 
     <div id="tab-opname" class="tab-content">
         <div id="activeBoxPanel" class="status-panel" style="background:#f0fdf4; border-color:#86efac; display:none;">
-            <div style="display:flex; justify-content:space-between; align-items:center;">
-                <div><i class="fas fa-box-open"></i> Filter Box: <b id="activeBoxName"></b></div>
-                <button class="btn-sm btn-danger" onclick="clearOpnameBoxFilter()">Ganti Box</button>
-            </div>
+           <div style="display:flex; justify-content:space-between; align-items:center;">
+    <div><i class="fas fa-box-open"></i> Filter Box: <b id="activeBoxName"></b></div>
+    <button class="btn-sm btn-warning" onclick="resetCurrentBoxOpname()" style="border-radius:6px; width:35px; height:35px; padding:0; display:flex; align-items:center; justify-content:center;"><i class="fas fa-undo"></i></button>
+</div>
             <div style="margin-top:5px; font-size:0.8rem; color:#166534;">
                 <i class="fas fa-bolt"></i> Mode Cepat: Scan Part untuk Auto +1
             </div>
@@ -1291,6 +1291,37 @@ function clearOpname() {
         } else {
             alert('Batal mereset. Kata kunci salah.');
         }
+    }
+}
+
+    function resetCurrentBoxOpname() {
+    if (!activeBoxFilter) return;
+
+    if (confirm(`⚠️ ULANG PERHITUNGAN BOX: ${activeBoxFilter}?\n\nSemua part yang sudah di-scan di dalam box ini akan direset kembali menjadi 0.\n(Lokasi part tidak akan dihapus)`)) {
+        
+        let resetCount = 0;
+        const tx = db.transaction('items', 'readwrite');
+        const st = tx.objectStore('items');
+
+        localItems.forEach(item => {
+            // Cari item yang lokasinya ada di box yang sedang aktif, DAN qty-nya lebih dari 0
+            if (item.locations[activeBoxFilter] !== undefined && item.locations[activeBoxFilter] > 0) {
+                item.locations[activeBoxFilter] = 0;
+                st.put(item);
+                resetCount++;
+            }
+        });
+
+        tx.oncomplete = () => {
+            feedback('success');
+            showToast(`✅ Hitungan Box ${activeBoxFilter} di-reset ke 0`);
+            handleOpnameRender(); // Render ulang layar list opname
+        };
+
+        tx.onerror = () => {
+            feedback('error');
+            showToast('❌ Gagal mereset box!');
+        };
     }
 }
 </script>
