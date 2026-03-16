@@ -17,15 +17,21 @@ self.addEventListener('install', event => {
   );
 });
 
-// Intercept request internet, gunakan cache jika offline
+// Intercept request internet, gunakan Network-First strategy
 self.addEventListener('fetch', event => {
   event.respondWith(
-    caches.match(event.request)
+    fetch(event.request)
       .then(response => {
-        if (response) {
-          return response; // Kembalikan dari cache
-        }
-        return fetch(event.request); // Ambil dari internet
+        // Kalau berhasil ditarik dari file asli/internet, update cachenya
+        const responseClone = response.clone();
+        caches.open(CACHE_NAME).then(cache => {
+          cache.put(event.request, responseClone);
+        });
+        return response;
+      })
+      .catch(() => {
+        // Kalau offline atau gagal fetch, baru panggil file lama dari cache
+        return caches.match(event.request);
       })
   );
 });
