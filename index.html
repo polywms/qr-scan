@@ -428,6 +428,13 @@ const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
         osc.start();
         osc.stop(audioCtx.currentTime + duration);
     }
+    function playChime() {
+    if(audioCtx.state === 'suspended') audioCtx.resume();
+    // Bunyi "Ding"
+    playTone(880, 'sine', 0.1); 
+    // Jeda sedikit, lalu bunyi "Ting!" yang lebih tinggi
+    setTimeout(() => playTone(1320, 'sine', 0.15), 150); 
+}
     function setStatus(msg) {
         const el = document.getElementById('scanStatusText');
         el.innerText = msg;
@@ -625,17 +632,31 @@ const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
                 if (isBox) { feedback('scan'); setOpnameBoxFilter(code); return; }
                 if (item) {
                     const currentQty = item.locations[activeBoxFilter];
-                    if (currentQty !== undefined) {
-                        item.locations[activeBoxFilter]++;
-                        saveDB(item);
-                        feedback('success');
-                        showToast(`${item.partNo}: Qty +1`);
-                        registerUndo('opname_add', item.id, activeBoxFilter); 
-                        handleOpnameRender();
-                    } else {
-                        feedback('scan');
-                        promptOpnameConflict(item, activeBoxFilter);
-                    }
+
+if (currentQty !== undefined) {
+    item.locations[activeBoxFilter]++;
+    saveDB(item);
+    
+    // HITUNG TOTAL FISIK DI SEMUA BOX
+    const totalFisik = Object.values(item.locations).reduce((a,b)=>a+b,0);
+    
+    // JIKA TOTAL FISIK == TARGET SISTEM, BUNYIKAN CHIMES
+    if (totalFisik === item.sysQty) {
+        playChime();
+        showToast(`${item.partNo}: LENGKAP (${totalFisik}/${item.sysQty})`);
+        document.body.classList.add('flash-success');
+        setTimeout(() => document.body.classList.remove('flash-success'), 500);
+    } else {
+        feedback('success');
+        showToast(`${item.partNo}: Qty +1`);
+    }
+
+    registerUndo('opname_add', item.id, activeBoxFilter); 
+    handleOpnameRender();
+} else {
+    feedback('scan');
+    promptOpnameConflict(item, activeBoxFilter);
+}
                 } else {
                       if(confirm(`Kode "${code}" Baru. Tambah ke Box ini?`)) {
                         const newItem = createNewItem(code);
@@ -826,22 +847,37 @@ function processMultiBatchMove(box, actionType = 'move') {
         return item;
     }
     function promptOpnameConflict(item, box) {
-        opnameConflictData = { item, box };
-        const existingLocs = Object.keys(item.locations);
-        document.getElementById('opnameConfirmModal').style.display = 'flex';
-        document.getElementById('opnameTargetBox').innerText = box;
-        if (existingLocs.length > 0) {
-            document.getElementById('opnameModalTitle').innerText = "Konflik Lokasi";
-            document.getElementById('opnameModalDesc').innerText = `Tercatat di: ${existingLocs.join(', ')}`;
-            document.getElementById('btnGroupConflict').style.display = 'block';
-            document.getElementById('btnGroupNew').style.display = 'none';
-        } else {
-            document.getElementById('opnameModalTitle').innerText = "Stok Kosong";
-            document.getElementById('opnameModalDesc').innerText = "Belum punya lokasi.";
-            document.getElementById('btnGroupConflict').style.display = 'none';
-            document.getElementById('btnGroupNew').style.display = 'block';
-        }
+    opnameConflictData = { item, box };
+    const existingLocs = Object.entries(item.locations);
+    
+    document.getElementById('opnameConfirmModal').style.display = 'flex';
+    document.getElementById('opnameTargetBox').innerText = box;
+    
+    if (existingLocs.length > 0) {
+        document.getElementById('opnameModalTitle').innerText = "Konflik Lokasi";
+        
+        // --- PERBAIKAN: Menampilkan rincian box lama dan Qty-nya ---
+        const locInfo = existingLocs.map(([k,v]) => `• Box <b>${k}</b> : ${v} pcs`).join('<br>');
+        const totalFisik = Object.values(item.locations).reduce((a,b)=>a+b,0);
+        
+        document.getElementById('opnameModalDesc').innerHTML = `
+            <div style="background:#f8fafc; border:1px solid #cbd5e1; padding:10px; border-radius:6px; text-align:left; font-size:0.9rem; margin-bottom:10px; color:#334155;">
+                <div style="margin-bottom:5px;">Sudah tercatat di lokasi lain:</div>
+                ${locInfo}
+                <hr style="border-top:1px dashed #cbd5e1; margin:8px 0;">
+                <div>Total Fisik: <b>${totalFisik}</b> | Target Sistem: <b>${item.sysQty}</b></div>
+            </div>
+        `;
+        
+        document.getElementById('btnGroupConflict').style.display = 'block';
+        document.getElementById('btnGroupNew').style.display = 'none';
+    } else {
+        document.getElementById('opnameModalTitle').innerText = "Stok Kosong";
+        document.getElementById('opnameModalDesc').innerHTML = "Belum punya lokasi.";
+        document.getElementById('btnGroupConflict').style.display = 'none';
+        document.getElementById('btnGroupNew').style.display = 'block';
     }
+}
     function executeOpnameAction(action) {
         const { item, box } = opnameConflictData;
         if (action === 'move') {
@@ -965,15 +1001,25 @@ function processMultiBatchMove(box, actionType = 'move') {
         const show = dataset.slice(0, renderLimit);
         show.forEach(i => {
             const qtyInBox = activeBoxFilter ? i.locations[activeBoxFilter] : 0;
-            let badgeClass = '';
-            let qtyDisplay = '';
-            if (qtyInBox === 0) {
-                badgeClass = 'qty-uncounted';
-                qtyDisplay = '0 (Uncounted)';
-            } else {
-                badgeClass = (qtyInBox === i.sysQty) ? 'qty-match' : 'qty-diff';
-                qtyDisplay = `${qtyInBox} / ${i.sysQty}`;
-            }
+const totalPhysical = Object.values(i.locations).reduce((a,b)=>a+b,0);
+
+let badgeClass = '';
+let qtyDisplay = '';
+
+if (qtyInBox === 0) {
+    badgeClass = 'qty-uncounted';
+    qtyDisplay = '0 (Uncounted)';
+} else {
+    // Cek komplit berdasarkan TOTAL KESELURUHAN, bukan cuma di box ini
+    badgeClass = (totalPhysical === i.sysQty) ? 'qty-match' : 'qty-diff';
+    
+    // Tampilkan info tambahan jika barang ini ter-split di banyak box
+    if (Object.keys(i.locations).length > 1) {
+        qtyDisplay = `${qtyInBox} <span style="font-size:0.7rem; opacity:0.8;">(Tot: ${totalPhysical}/${i.sysQty})</span>`;
+    } else {
+        qtyDisplay = `${qtyInBox} / ${i.sysQty}`;
+    }
+}
             let locStr = activeBoxFilter 
                 ? `Box ${activeBoxFilter}` 
                 : Object.entries(i.locations).map(([k,v])=>`${k}(${v})`).join(', ');
