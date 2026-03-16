@@ -239,6 +239,10 @@
                 <button class="btn-sm btn-danger" onclick="clearActivePart()"><i class="fas fa-times"></i></button>
             </div>
             <div id="activePartDesc" style="font-size:0.9rem; color:var(--secondary); margin-bottom:10px;">-</div>
+            <div style="display:flex; gap:8px; margin-bottom:10px;">
+    <button id="btnLabelNone" class="btn-sm btn-outline" style="flex:1;" onclick="setLabelStatus('NO_LABEL')"><i class="fas fa-tag"></i> Tanpa Label</button>
+    <button id="btnLabelDamaged" class="btn-sm btn-outline" style="flex:1;" onclick="setLabelStatus('DAMAGED')"><i class="fas fa-tags"></i> Label Rusak</button>
+</div>
             <div style="background:#fff; padding:8px; margin-bottom:10px; border-radius:6px; border:1px solid #bfdbfe; font-size:0.9rem;">
                 Lokasi Saat Ini: <b id="activePartLoc" style="color:var(--danger)">-</b>
             </div>
@@ -279,9 +283,11 @@
         </div>
 
         <div class="segment-control">
+            <button class="btn-sm btn-outline" style="border-radius:0; border-left:1px solid var(--border);" onclick="openRakModal()"><i class="fas fa-chart-pie"></i></button>
             <div class="segment-btn active" onclick="setOpnameFilter('all', this)">SEMUA</div>
             <div class="segment-btn" onclick="setOpnameFilter('diff', this)">SELISIH</div>
             <div class="segment-btn" onclick="setOpnameFilter('zero', this)">BELUM</div>
+            
         </div>
         <div id="opnameList" class="list-container"></div>
         <div id="opnameLoading" style="text-align:center; padding:15px; display:none; color:var(--secondary);">Load more...</div>
@@ -362,6 +368,7 @@
                 <button class="btn-primary" style="width:auto; padding:8px 12px; margin:0;" onclick="addManualLoc()"><i class="fas fa-plus"></i></button>
             </div>
         </div>
+        <div id="editDeleteBtnContainer"></div>
         <button class="btn btn-success" onclick="saveManualEdit()">Simpan Perubahan</button>
     </div>
 </div>
@@ -395,6 +402,19 @@
         <button class="btn btn-danger" onclick="closeCameraScanner()"><i class="fas fa-times"></i> Tutup Kamera</button>
     </div>
 </div>
+<div class="overlay" id="rakModal">
+    <div class="modal">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
+            <h3 style="margin:0;"><i class="fas fa-search"></i> Cek Selisih Rak</h3>
+            <button onclick="document.getElementById('rakModal').style.display='none'" style="border:none; background:none; font-size:1.5rem; color:var(--danger);"><i class="fas fa-times"></i></button>
+        </div>
+        <select id="rakSelect" onchange="renderRakSummary()">
+            <option value="">-- Loading Rak... --</option>
+        </select>
+        <div id="rakSummaryList" style="margin-top:15px; max-height:55vh; overflow-y:auto; display:flex; flex-direction:column; gap:8px;"></div>
+    </div>
+</div>
+    
 <div id="toast">Notifikasi</div>
 
 <script>
@@ -434,6 +454,12 @@ const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
     playTone(880, 'sine', 0.1); 
     // Jeda sedikit, lalu bunyi "Ting!" yang lebih tinggi
     setTimeout(() => playTone(1320, 'sine', 0.15), 150); 
+}
+    function playBoxCompleteChime() {
+    if(audioCtx.state === 'suspended') audioCtx.resume();
+    playTone(880, 'sine', 0.1);  // Ding
+    setTimeout(() => playTone(1108, 'sine', 0.1), 150); // Ting
+    setTimeout(() => playTone(1320, 'sine', 0.3), 300); // Tiiing! (Lebih panjang)
 }
     function setStatus(msg) {
         const el = document.getElementById('scanStatusText');
@@ -586,8 +612,8 @@ const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
     const item = filteredItems.find(i => i.partNo.toUpperCase() === code);
     
     // PERBAIKAN: Regex dilonggarkan agar lebih fleksibel (contoh: RAK-01, GUDANG-A, A1-01)
-    const boxPattern = /^[A-Z0-9]+[-][A-Z0-9]+$/;
-    const isBox = boxPattern.test(code);
+        const boxPattern = /^[A-Z][0-9]{0,2}-[0-9]{2,3}$/;
+        const isBox = boxPattern.test(code);
 
     if (currentTab === 'simpan') {
         if (item) {
@@ -653,6 +679,27 @@ if (currentQty !== undefined) {
 
     registerUndo('opname_add', item.id, activeBoxFilter); 
     handleOpnameRender();
+setTimeout(() => {
+        const row = document.getElementById(`opname-row-${item.id}`);
+        if (row) {
+            document.querySelectorAll('.item-card').forEach(el => el.classList.remove('row-flash'));
+            row.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            row.classList.add('row-flash'); 
+        }
+    }, 100);
+
+    // -- FITUR BARU: CEK APAKAH SELURUH BOX INI SUDAH KOMPLIT --
+    const boxItems = filteredItems.filter(i => i.locations[activeBoxFilter] !== undefined);
+    const allComplete = boxItems.length > 0 && boxItems.every(i => {
+        const tot = Object.values(i.locations).reduce((a,b)=>a+b,0);
+        return tot >= i.sysQty;
+    });
+    
+    if (allComplete) {
+        setTimeout(() => playBoxCompleteChime(), 600); // Mainkan setelah suara '+1' selesai
+        showToast(`🎉 BOX ${activeBoxFilter} SELESAI SEMPURNA!`);
+    }
+
 } else {
     feedback('scan');
     promptOpnameConflict(item, activeBoxFilter);
@@ -942,6 +989,8 @@ function processMultiBatchMove(box, actionType = 'move') {
         document.getElementById('simpanStatusPanel').style.display = 'block';
         document.getElementById('activePartNo').innerText = item.partNo;
         document.getElementById('activePartDesc').innerText = item.desc;
+        document.getElementById('btnLabelNone').className = item.labelStatus === 'NO_LABEL' ? 'btn-sm btn-danger' : 'btn-sm btn-outline';
+document.getElementById('btnLabelDamaged').className = item.labelStatus === 'DAMAGED' ? 'btn-sm btn-warning' : 'btn-sm btn-outline';
         const locInfo = Object.keys(item.locations).join(', ') || 'Belum ada';
         document.getElementById('activePartLoc').innerText = locInfo;
         document.querySelectorAll('.item-card').forEach(el => {
@@ -1025,6 +1074,7 @@ if (qtyInBox === 0) {
                 : Object.entries(i.locations).map(([k,v])=>`${k}(${v})`).join(', ');
             const div = document.createElement('div');
             div.className = 'item-card';
+            div.id = `opname-row-${i.id}`;
             div.innerHTML = `
                 <div style="flex:1" onclick="openEditModal(${i.id})">
                     <span class="part-code">${i.partNo}</span>
@@ -1134,6 +1184,12 @@ if (qtyInBox === 0) {
                 </div>`;
             list.appendChild(r);
         });
+        const delBtnContainer = document.getElementById('editDeleteBtnContainer');
+if (item.desc === 'PART BARU') {
+    delBtnContainer.innerHTML = `<button class="btn btn-danger" style="margin-top:15px;" onclick="deletePartBaru(${item.id})"><i class="fas fa-trash-alt"></i> Hapus Part Ini Permanen</button>`;
+} else {
+    delBtnContainer.innerHTML = '';
+}
     }
     function deleteLocation(id, box) {
         if(confirm(`Hapus part ini dari box ${box}?`)) {
@@ -1274,16 +1330,30 @@ if (qtyInBox === 0) {
         r.readAsArrayBuffer(f);
     }
     function exportData() {
-        const data=localItems.map(i=>{
-            let r={...i.raw};
-            const p=Object.values(i.locations).reduce((a,b)=>a+b,0);
-            r['QTY Fisik']=p; r['Lokasi']=Object.entries(i.locations).map(([k,v])=>`${k}(${v})`).join(', ');
-            r['Selisih']=p-i.sysQty; return r;
-        });
-        const ws=XLSX.utils.json_to_sheet(data);
-        const wb=XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb,ws,"Result");
-        XLSX.writeFile(wb,"WMS_Result.xlsx");
+    // Pisahkan Data Master dan Data Temuan
+    const dataUtama = localItems.filter(i => i.desc !== 'PART BARU').map(i => {
+        let r={...i.raw};
+        const p=Object.values(i.locations).reduce((a,b)=>a+b,0);
+        r['QTY Fisik']=p; r['Lokasi']=Object.entries(i.locations).map(([k,v])=>`${k}(${v})`).join(', ');
+        r['Selisih']=p-i.sysQty; r['Kondisi Label'] = i.labelStatus || 'OK'; return r;
+    });
+    
+    const dataBaru = localItems.filter(i => i.desc === 'PART BARU').map(i => {
+        const p=Object.values(i.locations).reduce((a,b)=>a+b,0);
+        return {
+            'Part Number': i.partNo, 'QTY Fisik': p,
+            'Lokasi Ditemukan': Object.entries(i.locations).map(([k,v])=>`${k}(${v})`).join(', ')
+        };
+    });
+
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(dataUtama), "Data Master");
+    
+    if (dataBaru.length > 0) {
+        XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(dataBaru), "Part Temuan (Baru)");
     }
+    XLSX.writeFile(wb, "WMS_Result.xlsx");
+}
     function backupJson() {
         const b=new Blob([JSON.stringify(localItems)],{type:'application/json'});
         const a=document.createElement('a'); a.href=URL.createObjectURL(b); a.download='backup.json'; a.click();
@@ -1420,6 +1490,77 @@ function closeCameraScanner() {
         html5QrcodeScanner = null;
     }
     document.getElementById('mainInput').focus();
+}
+
+    function setLabelStatus(status) {
+    if (!tempPart) return;
+    // Jika diklik lagi, hapus statusnya (toggle)
+    tempPart.labelStatus = (tempPart.labelStatus === status) ? null : status; 
+    saveDB(tempPart);
+    feedback('success');
+    renderSimpanList(false);
+    selectPartSimpan(tempPart); // Refresh warna tombol
+}
+
+    function deletePartBaru(id) {
+    if(confirm('Hapus Part Baru ini dari database secara permanen?')) {
+        const tx = db.transaction('items', 'readwrite');
+        tx.objectStore('items').delete(id);
+        tx.oncomplete = () => {
+            localItems = localItems.filter(i => i.id !== id);
+            filteredItems = filteredItems.filter(i => i.id !== id);
+            document.getElementById('editModal').style.display='none';
+            renderDataList(true);
+            showToast('Part dihapus.');
+        };
+    }
+}
+    function openRakModal() {
+    const raks = new Set();
+    // Ambil huruf pertama dari semua lokasi (Box A2-01 -> Rak A)
+    localItems.forEach(i => Object.keys(i.locations).forEach(box => raks.add(box.charAt(0).toUpperCase())));
+    
+    const sel = document.getElementById('rakSelect');
+    sel.innerHTML = '<option value="">-- Pilih Rak yang Ingin Dicek --</option>';
+    [...raks].sort().forEach(r => sel.innerHTML += `<option value="${r}">Rak ${r}</option>`);
+    
+    document.getElementById('rakSummaryList').innerHTML = '<div style="text-align:center; color:#999; padding:20px;">Pilih rak di atas</div>';
+    document.getElementById('rakModal').style.display = 'flex';
+}
+
+function renderRakSummary() {
+    const rak = document.getElementById('rakSelect').value;
+    const container = document.getElementById('rakSummaryList');
+    if (!rak) { container.innerHTML = ''; return; }
+
+    let html = '';
+    let missingCount = 0;
+
+    localItems.forEach(i => {
+        // Cari part yang seharusnya ada di Rak ini
+        const boxesInRak = Object.keys(i.locations).filter(b => b.startsWith(rak));
+        if (boxesInRak.length > 0) {
+            const totalFisik = Object.values(i.locations).reduce((a,b)=>a+b,0);
+            if (totalFisik < i.sysQty) {
+                missingCount++;
+                html += `
+                <div style="padding:10px; border-left:4px solid var(--danger); background:#fef2f2; border-radius:4px;">
+                    <div style="display:flex; justify-content:space-between;">
+                        <b style="color:var(--danger)">${i.partNo}</b>
+                        <span style="font-size:0.8rem; font-weight:bold; color:var(--danger)">${totalFisik} / ${i.sysQty}</span>
+                    </div>
+                    <div style="font-size:0.8rem; color:#666; margin-top:4px;">
+                        Harusnya di: ${boxesInRak.map(b => `${b}(${i.locations[b]})`).join(', ')}
+                    </div>
+                </div>`;
+            }
+        }
+    });
+
+    if (missingCount === 0) {
+        html = '<div style="text-align:center; padding:30px; color:#16a34a; font-weight:bold;"><i class="fas fa-check-circle" style="font-size:3rem; margin-bottom:10px; display:block;"></i>Semua Part di Rak ini AMAN & KOMPLIT!</div>';
+    }
+    container.innerHTML = html;
 }
 </script>
 
