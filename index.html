@@ -1315,51 +1315,89 @@ if (item.desc === 'PART BARU') {
         r.onload = async e => {
             const wb = XLSX.read(e.target.result, {type:'array'});
             const json = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], {defval:''});
+            
             const txRead = db.transaction('items', 'readonly');
             const oldItems = await new Promise(resolve => {
                 txRead.objectStore('items').getAll().onsuccess = ev => resolve(ev.target.result || []);
             });
+            
+            // 1. Amankan Lokasi Fisik dan ID Lama
             const locationMap = {};
+            const idMap = {};
             oldItems.forEach(item => {
+                const pKey = item.partNo.trim().toUpperCase();
                 if(Object.keys(item.locations).length > 0) {
-                    locationMap[item.partNo.trim().toUpperCase()] = item.locations;
+                    locationMap[pKey] = item.locations;
+                }
+                idMap[pKey] = item.id; // Simpan ID bawaan agar tidak terbuat ulang
+            });
+
+            // 2. KONSOLIDASI DATA EXCEL (Cegah Baris Ganda)
+            const consolidatedExcel = {};
+            json.forEach(row => {
+                const rawPartNo = String(row['Part']||row['Nomor Gudang']||'').trim();
+                const pKey = rawPartNo.toUpperCase();
+                if (!pKey) return; // Skip baris kosong
+                
+                const qty = parseInt(row['Available QTY']||0) || 0;
+
+                if (consolidatedExcel[pKey]) {
+                    // Jika Part sudah ada di baris Excel sebelumnya, tambahkan Qty-nya
+                    consolidatedExcel[pKey].sysQty += qty;
+                } else {
+                    // Jika Part baru pertama kali dibaca di Excel ini, buat entitasnya
+                    consolidatedExcel[pKey] = {
+                        locType: row['Tipe Lokasi']||'UMUM',
+                        techName: row['Nama']||'',
+                        partNo: rawPartNo, // Pertahankan huruf asli
+                        desc: row['Deskripsi Part']||'',
+                        sysQty: qty,
+                        raw: row
+                    };
                 }
             });
-            const excelPartSet = new Set();
-            json.forEach(row => {
-                const pNo = String(row['Part']||row['Nomor Gudang']||'').trim().toUpperCase();
-                if(pNo) excelPartSet.add(pNo);
-            });
+
+            const excelPartSet = new Set(Object.keys(consolidatedExcel));
+            
+            // 3. Cari part lokal yang tidak ada di Excel (Part Temuan Baru)
             const localPartsOnly = oldItems.filter(item => {
                 const pUpper = item.partNo.trim().toUpperCase();
                 return !excelPartSet.has(pUpper);
             });
+
             const tx = db.transaction('items', 'readwrite');
             const st = tx.objectStore('items'); 
-            st.clear(); 
-            json.forEach((row, i) => {
-                const rawPartNo = String(row['Part']||row['Nomor Gudang']||'').trim();
-                const pKey = rawPartNo.toUpperCase();
+            st.clear(); // Bersihkan meja sebelum menaruh data rapi
+
+            // 4. Masukkan data Excel yang sudah bersih & tergabung
+            let newIdCounter = 0;
+            for (const pKey in consolidatedExcel) {
+                const data = consolidatedExcel[pKey];
                 const savedLocs = locationMap[pKey] || {}; 
+                const existingId = idMap[pKey]; // Tarik ID lama jika ada
+
                 st.add({
-                    id: i + 1, 
-                    locType: row['Tipe Lokasi']||'UMUM', 
-                    techName: row['Nama']||'',
-                    partNo: rawPartNo, 
-                    desc: row['Deskripsi Part']||'', 
-                    sysQty: parseInt(row['Available QTY']||0),
+                    id: existingId ? existingId : (Date.now() + newIdCounter), 
+                    locType: data.locType, 
+                    techName: data.techName,
+                    partNo: data.partNo, 
+                    desc: data.desc, 
+                    sysQty: data.sysQty, // Qty ini sudah hasil penjumlahan (jika ganda) atau data terbaru
                     locations: savedLocs, 
-                    raw: row
+                    raw: data.raw
                 });
-            });
+                newIdCounter++;
+            }
+
+            // 5. Kembalikan part lokal yang tersesat
             let rescuedCount = 0;
-            localPartsOnly.forEach((item, index) => {
-                item.id = Date.now() + index; 
-                st.add(item);
+            localPartsOnly.forEach(item => {
+                st.add(item); // ID bawaan item ini sudah aman, tinggal dimasukkan lagi
                 rescuedCount++;
             });
+
             tx.oncomplete = () => {
-                alert(`Import Selesai!\n📥 ${json.length} Part Master dari Excel.\n🔄 Merge Data Sukses.\n🛡️ ${rescuedCount} Part Lokal (Unlisted) dipertahankan.`);
+                alert(`Import & Merge Selesai!\n📥 ${Object.keys(consolidatedExcel).length} Part Master bersih dari Excel (Duplikat digabungkan).\n🛡️ ${rescuedCount} Part Lokal (Temuan) dipertahankan.`);
                 location.reload();
             };
         }; 
