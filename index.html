@@ -633,52 +633,52 @@ const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
         document.getElementById('mainInput').focus();
     }
     function processScan(code) {
-    if (code.includes('|')) code = code.split('|')[0];
-    code = code.trim().toUpperCase();
-    addToHistory(code);
-    const item = filteredItems.find(i => i.partNo.toUpperCase() === code);
-    
-    // PERBAIKAN: Regex dilonggarkan agar lebih fleksibel (contoh: RAK-01, GUDANG-A, A1-01)
+        if (code.includes('|')) code = code.split('|')[0];
+        code = code.trim().toUpperCase();
+        addToHistory(code);
+        const item = filteredItems.find(i => i.partNo.toUpperCase() === code);
+        
+        // Regex dilonggarkan agar lebih fleksibel (contoh: RAK-01, GUDANG-A, A1-01)
         const boxPattern = /^[A-Z][0-9]{0,2}-[0-9]{2,3}$/;
         const isBox = boxPattern.test(code);
 
-    if (currentTab === 'simpan') {
-        if (item) {
-            feedback('scan');
-            if (isMultiScan) addToMultiBuffer(item);
-            else { selectPartSimpan(item); setStatus(`Part: ${item.partNo}`); }
-        } else {
-            if (isBox) {
-                if (isMultiScan) {
-                    if (multiBuffer.length > 0) {
-                        // PERBAIKAN: Cek apakah ada part di buffer yang sudah punya lokasi lama
-                        const hasConflicts = multiBuffer.some(i => Object.keys(i.locations).length > 0);
-                        if (hasConflicts) {
-                            // Tanya user mau ditimpa (Move) atau ditambah (Split)
-                            if (confirm(`Peringatan: Beberapa part sudah punya lokasi lama.\n\n[OK] = PINDAH (Hapus lokasi lama)\n[Batal] = SPLIT (Tambah ke ${code} tanpa menghapus yang lama)`)) {
-                                processMultiBatchMove(code, 'move');
+        if (currentTab === 'simpan') {
+            if (item) {
+                feedback('scan');
+                if (isMultiScan) addToMultiBuffer(item);
+                else { selectPartSimpan(item); setStatus(`Part: ${item.partNo}`); }
+            } else {
+                if (isBox) {
+                    if (isMultiScan) {
+                        if (multiBuffer.length > 0) {
+                            // Cek apakah ada part di buffer yang sudah punya lokasi lama
+                            const hasConflicts = multiBuffer.some(i => Object.keys(i.locations).length > 0);
+                            if (hasConflicts) {
+                                // Tanya user mau ditimpa (Move) atau ditambah (Split)
+                                if (confirm(`Peringatan: Beberapa part sudah punya lokasi lama.\n\n[OK] = PINDAH (Hapus lokasi lama)\n[Batal] = SPLIT (Tambah ke ${code} tanpa menghapus yang lama)`)) {
+                                    processMultiBatchMove(code, 'move');
+                                } else {
+                                    processMultiBatchMove(code, 'split');
+                                }
                             } else {
                                 processMultiBatchMove(code, 'split');
                             }
-                        } else {
-                            processMultiBatchMove(code, 'split');
                         }
+                        else { feedback('error'); setStatus("Buffer Kosong!"); }
+                    } else {
+                        if (tempPart) checkSimpanConflict(tempPart, code);
+                        else { feedback('error'); showToast("Scan Part Dulu!"); }
                     }
-                    else { feedback('error'); setStatus("Buffer Kosong!"); }
                 } else {
-                    if (tempPart) checkSimpanConflict(tempPart, code);
-                    else { feedback('error'); showToast("Scan Part Dulu!"); }
-                }
-            } else {
-                if (confirm(`Kode "${code}" Baru. Buat Part?`)) {
-                    const newItem = createNewItem(code);
-                    if (isMultiScan) addToMultiBuffer(newItem);
-                    else selectPartSimpan(newItem);
+                    if (confirm(`Kode "${code}" Baru. Buat Part?`)) {
+                        const newItem = createNewItem(code);
+                        if (isMultiScan) addToMultiBuffer(newItem);
+                        else selectPartSimpan(newItem);
+                    }
                 }
             }
+            return;
         }
-        return;
-    }
 
         if (currentTab === 'opname') {
             if (activeBoxFilter) {
@@ -686,52 +686,68 @@ const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
                 if (item) {
                     const currentQty = item.locations[activeBoxFilter];
 
-if (currentQty !== undefined) {
-    item.locations[activeBoxFilter]++;
-    saveDB(item);
-    
-    // HITUNG TOTAL FISIK DI SEMUA BOX
-    const totalFisik = Object.values(item.locations).reduce((a,b)=>a+b,0);
-    
-    // JIKA TOTAL FISIK == TARGET SISTEM, BUNYIKAN CHIMES
-    if (totalFisik === item.sysQty) {
-        playChime();
-        showToast(`${item.partNo}: LENGKAP (${totalFisik}/${item.sysQty})`);
-        document.body.classList.add('flash-success');
-        setTimeout(() => document.body.classList.remove('flash-success'), 500);
-    } else {
-        feedback('success');
-        showToast(`${item.partNo}: Qty +1`);
-    }
+                    if (currentQty !== undefined) {
+                        // --- 1. CEK OVER-STOK SEBELUM DITAMBAH ---
+                        const currentTotalFisik = Object.values(item.locations).reduce((a,b)=>a+b,0);
+                        
+                        if (currentTotalFisik >= item.sysQty) {
+                            feedback('error'); // Bunyikan suara error / getar
+                            
+                            // Tampilkan popup peringatan
+                            const forceAdd = confirm(`⚠️ PERINGATAN OVER QTY!\n\nPart: ${item.partNo}\nTarget sistem hanya ${item.sysQty}, tapi kamu mencoba men-scan barang ke-${currentTotalFisik + 1}.\n\nTetap tambahkan (+1) sebagai kelebihan stok?`);
+                            
+                            if (!forceAdd) {
+                                showToast("Dibatalkan (Hindari Kelebihan Qty)");
+                                return; // Berhenti eksekusi, jangan ditambah
+                            }
+                        }
 
-    registerUndo('opname_add', item.id, activeBoxFilter); 
-    lastOpnameScanId = item.id;
-    handleOpnameRender();
-setTimeout(() => {
-        const row = document.getElementById(`opname-row-${item.id}`);
-        if (row) {
-            document.querySelectorAll('.item-card').forEach(el => el.classList.remove('row-flash'));
-            row.scrollIntoView({ behavior: 'smooth', block: 'center' });
-            row.classList.add('row-flash'); 
-        }
-    }, 100);
+                        item.locations[activeBoxFilter]++;
+                        saveDB(item);
+                        const totalFisik = Object.values(item.locations).reduce((a,b)=>a+b,0);
+                        
+                        // JIKA TOTAL FISIK == TARGET SISTEM, BUNYIKAN CHIMES
+                        if (totalFisik === item.sysQty) {
+                            playChime();
+                            showToast(`${item.partNo}: LENGKAP (${totalFisik}/${item.sysQty})`);
+                            document.body.classList.add('flash-success');
+                            setTimeout(() => document.body.classList.remove('flash-success'), 500);
+                        } else if (totalFisik > item.sysQty) {
+                            feedback('error'); // Suara error lagi sebagai tanda ini barang lebih
+                            showToast(`⚠️ OVER QTY: (${totalFisik}/${item.sysQty})`);
+                        } else {
+                            feedback('success');
+                            showToast(`${item.partNo}: Qty +1`);
+                        }
 
-    // -- FITUR BARU: CEK APAKAH SELURUH BOX INI SUDAH KOMPLIT --
-    const boxItems = filteredItems.filter(i => i.locations[activeBoxFilter] !== undefined);
-    const allComplete = boxItems.length > 0 && boxItems.every(i => {
-        const tot = Object.values(i.locations).reduce((a,b)=>a+b,0);
-        return tot >= i.sysQty;
-    });
-    
-    if (allComplete) {
-        setTimeout(() => playBoxCompleteChime(), 600); // Mainkan setelah suara '+1' selesai
-        showToast(`🎉 BOX ${activeBoxFilter} SELESAI SEMPURNA!`);
-    }
+                        registerUndo('opname_add', item.id, activeBoxFilter); 
+                        lastOpnameScanId = item.id;
+                        handleOpnameRender();
+                        setTimeout(() => {
+                            const row = document.getElementById(`opname-row-${item.id}`);
+                            if (row) {
+                                document.querySelectorAll('.item-card').forEach(el => el.classList.remove('row-flash'));
+                                row.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                                row.classList.add('row-flash'); 
+                            }
+                        }, 100);
 
-} else {
-    feedback('scan');
-    promptOpnameConflict(item, activeBoxFilter);
-}
+                        // -- FITUR BARU: CEK APAKAH SELURUH BOX INI SUDAH KOMPLIT --
+                        const boxItems = filteredItems.filter(i => i.locations[activeBoxFilter] !== undefined);
+                        const allComplete = boxItems.length > 0 && boxItems.every(i => {
+                            const tot = Object.values(i.locations).reduce((a,b)=>a+b,0);
+                            return tot >= i.sysQty;
+                        });
+                        
+                        if (allComplete) {
+                            setTimeout(() => playBoxCompleteChime(), 600); // Mainkan setelah suara '+1' selesai
+                            showToast(`🎉 BOX ${activeBoxFilter} SELESAI SEMPURNA!`);
+                        }
+
+                    } else {
+                        feedback('scan');
+                        promptOpnameConflict(item, activeBoxFilter);
+                    }
                 } else {
                       if(confirm(`Kode "${code}" Baru. Tambah ke Box ini?`)) {
                         const newItem = createNewItem(code);
@@ -748,6 +764,7 @@ setTimeout(() => {
             }
             return;
         }
+        
         if (item) {
             feedback('scan');
             jumpToItem(item.partNo);
@@ -1085,25 +1102,28 @@ document.getElementById('activePartDesc').innerHTML = item.desc + issueWarning;
         const show = dataset.slice(0, renderLimit);
         show.forEach(i => {
             const qtyInBox = activeBoxFilter ? i.locations[activeBoxFilter] : 0;
-const totalPhysical = Object.values(i.locations).reduce((a,b)=>a+b,0);
+            const totalPhysical = Object.values(i.locations).reduce((a,b)=>a+b,0);
 
-let badgeClass = '';
-let qtyDisplay = '';
+            let badgeClass = '';
+            let qtyDisplay = '';
 
-if (qtyInBox === 0) {
-    badgeClass = 'qty-uncounted';
-    qtyDisplay = '0 (Uncounted)';
-} else {
-    // Cek komplit berdasarkan TOTAL KESELURUHAN, bukan cuma di box ini
-    badgeClass = (totalPhysical === i.sysQty) ? 'qty-match' : 'qty-diff';
-    
-    // Tampilkan info tambahan jika barang ini ter-split di banyak box
-    if (Object.keys(i.locations).length > 1) {
-        qtyDisplay = `${qtyInBox} <span style="font-size:0.7rem; opacity:0.8;">(Tot: ${totalPhysical}/${i.sysQty})</span>`;
-    } else {
-        qtyDisplay = `${qtyInBox} / ${i.sysQty}`;
-    }
-}
+            if (qtyInBox === 0) {
+                badgeClass = 'qty-uncounted';
+                // --- PERUBAHAN: Tampilkan "0 / Stok Sistem" ---
+                qtyDisplay = `0 / ${i.sysQty}`; 
+            } else {
+                badgeClass = (totalPhysical === i.sysQty) ? 'qty-match' : 'qty-diff';
+                
+                // Pastikan yang over qty (lebih dari sistem) juga pakai warna diff (merah)
+                if (totalPhysical > i.sysQty) badgeClass = 'qty-diff';
+                
+                // Tampilkan info tambahan jika barang ini ter-split di banyak box
+                if (Object.keys(i.locations).length > 1) {
+                    qtyDisplay = `${qtyInBox} <span style="font-size:0.7rem; opacity:0.8;">(Tot: ${totalPhysical}/${i.sysQty})</span>`;
+                } else {
+                    qtyDisplay = `${qtyInBox} / ${i.sysQty}`;
+                }
+            }
             let locStr = activeBoxFilter 
                 ? `Box ${activeBoxFilter}` 
                 : Object.entries(i.locations).map(([k,v])=>`${k}(${v})`).join(', ');
