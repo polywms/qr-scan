@@ -1321,83 +1321,129 @@ if (item.desc === 'PART BARU') {
                 txRead.objectStore('items').getAll().onsuccess = ev => resolve(ev.target.result || []);
             });
             
-            // 1. Amankan Lokasi Fisik dan ID Lama
-            const locationMap = {};
-            const idMap = {};
+            // 1. Kumpulkan semua Lokasi Fisik lama & ID (Pisahkan Teknisi dan Baik)
+            const locationPool = {}; 
+            const idMap = {}; 
+            
             oldItems.forEach(item => {
-                const pKey = item.partNo.trim().toUpperCase();
-                if(Object.keys(item.locations).length > 0) {
-                    locationMap[pKey] = item.locations;
+                const pNo = item.partNo.trim().toUpperCase();
+                
+                // Kumpulkan semua record lokasi fisik ke dalam satu "Pool" berdasarkan Nomor Part
+                if (Object.keys(item.locations).length > 0) {
+                    if (!locationPool[pNo]) locationPool[pNo] = {};
+                    Object.assign(locationPool[pNo], item.locations); 
                 }
-                idMap[pKey] = item.id; // Simpan ID bawaan agar tidak terbuat ulang
+
+                // Simpan ID lama menggunakan kunci gabungan agar entitas tidak tertukar
+                const compositeKey = `${pNo}_${(item.locType||'').toUpperCase()}_${(item.techName||'').toUpperCase()}`;
+                idMap[compositeKey] = item.id;
             });
 
-            // 2. KONSOLIDASI DATA EXCEL (Cegah Baris Ganda)
+            // 2. KONSOLIDASI DATA EXCEL (Pisahkan Entitas berdasarkan Status/Tipe Lokasi)
             const consolidatedExcel = {};
             json.forEach(row => {
                 const rawPartNo = String(row['Part']||row['Nomor Gudang']||'').trim();
-                const pKey = rawPartNo.toUpperCase();
-                if (!pKey) return; // Skip baris kosong
+                const pNo = rawPartNo.toUpperCase();
+                if (!pNo) return; 
                 
+                const locType = (row['Tipe Lokasi']||'UMUM').trim();
+                const techName = (row['Nama']||'').trim();
                 const qty = parseInt(row['Available QTY']||0) || 0;
 
-                if (consolidatedExcel[pKey]) {
-                    // Jika Part sudah ada di baris Excel sebelumnya, tambahkan Qty-nya
-                    consolidatedExcel[pKey].sysQty += qty;
+                // Kunci Gabungan: Part Number + Tipe Lokasi + Nama Teknisi
+                const compositeKey = `${pNo}_${locType.toUpperCase()}_${techName.toUpperCase()}`;
+
+                if (consolidatedExcel[compositeKey]) {
+                    // Jika Kunci Gabungan sama persis, jumlahkan Qty-nya
+                    consolidatedExcel[compositeKey].sysQty += qty;
                 } else {
-                    // Jika Part baru pertama kali dibaca di Excel ini, buat entitasnya
-                    consolidatedExcel[pKey] = {
-                        locType: row['Tipe Lokasi']||'UMUM',
-                        techName: row['Nama']||'',
-                        partNo: rawPartNo, // Pertahankan huruf asli
+                    // Buat entri baru
+                    consolidatedExcel[compositeKey] = {
+                        locType: locType,
+                        techName: techName,
+                        partNo: rawPartNo,
                         desc: row['Deskripsi Part']||'',
                         sysQty: qty,
-                        raw: row
+                        raw: row,
+                        basePartNo: pNo, // Disimpan untuk mencocokkan lokasi fisik
+                        compositeKey: compositeKey
                     };
                 }
             });
 
-            const excelPartSet = new Set(Object.keys(consolidatedExcel));
+            // 3. AUTO-MIGRASI: Pastikan lokasi fisik tidak hilang jika di Excel hanya ada versi "TEKNISI"
+            for (const pNo in locationPool) {
+                // Cek apakah ada entitas Non-Teknisi untuk Part ini di Excel
+                const hasNonTeknisi = Object.values(consolidatedExcel).some(
+                    d => d.basePartNo === pNo && !d.locType.toUpperCase().includes('TEKNISI')
+                );
+
+                // Jika ada lokasi fisik TAPI tidak ada "SPAREPART BAIK" di Excel, buat penampung otomatis
+                if (!hasNonTeknisi && Object.keys(locationPool[pNo]).length > 0) {
+                    const dummyKey = `${pNo}_SPAREPART BAIK_`;
+                    consolidatedExcel[dummyKey] = {
+                        locType: 'SPAREPART BAIK',
+                        techName: '',
+                        partNo: pNo,
+                        desc: 'PART MIGRASI (CEK EXCEL)',
+                        sysQty: 0,
+                        raw: {},
+                        basePartNo: pNo,
+                        compositeKey: dummyKey
+                    };
+                }
+            }
+
+            const excelPartSet = new Set(Object.values(consolidatedExcel).map(d => d.basePartNo));
             
-            // 3. Cari part lokal yang tidak ada di Excel (Part Temuan Baru)
+            // 4. Pisahkan part temuan (Part Baru manual)
             const localPartsOnly = oldItems.filter(item => {
-                const pUpper = item.partNo.trim().toUpperCase();
-                return !excelPartSet.has(pUpper);
+                return !excelPartSet.has(item.partNo.trim().toUpperCase());
             });
 
             const tx = db.transaction('items', 'readwrite');
             const st = tx.objectStore('items'); 
-            st.clear(); // Bersihkan meja sebelum menaruh data rapi
+            st.clear(); 
 
-            // 4. Masukkan data Excel yang sudah bersih & tergabung
+            // 5. Masukkan Data ke Database + Terapkan Aturan Mutlak
             let newIdCounter = 0;
-            for (const pKey in consolidatedExcel) {
-                const data = consolidatedExcel[pKey];
-                const savedLocs = locationMap[pKey] || {}; 
-                const existingId = idMap[pKey]; // Tarik ID lama jika ada
+            for (const key in consolidatedExcel) {
+                const data = consolidatedExcel[key];
+                const isTeknisi = data.locType.toUpperCase().includes('TEKNISI');
+                let finalLocs = {};
+
+                // ATURAN MUTLAK: Teknisi DILARANG punya box. 
+                // Jika bukan teknisi, tarik dari locationPool dan hapus agar tidak masuk ke entitas lain
+                if (!isTeknisi && locationPool[data.basePartNo]) {
+                    finalLocs = { ...locationPool[data.basePartNo] };
+                    delete locationPool[data.basePartNo]; // Tandai sudah dipakai
+                }
 
                 st.add({
-                    id: existingId ? existingId : (Date.now() + newIdCounter), 
+                    id: idMap[data.compositeKey] || (Date.now() + newIdCounter),
                     locType: data.locType, 
                     techName: data.techName,
                     partNo: data.partNo, 
                     desc: data.desc, 
-                    sysQty: data.sysQty, // Qty ini sudah hasil penjumlahan (jika ganda) atau data terbaru
-                    locations: savedLocs, 
+                    sysQty: data.sysQty,
+                    locations: finalLocs, 
                     raw: data.raw
                 });
                 newIdCounter++;
             }
 
-            // 5. Kembalikan part lokal yang tersesat
             let rescuedCount = 0;
             localPartsOnly.forEach(item => {
-                st.add(item); // ID bawaan item ini sudah aman, tinggal dimasukkan lagi
+                // Aturan yang sama untuk part lokal: Teknisi tidak boleh punya lokasi
+                if (item.locType && item.locType.toUpperCase().includes('TEKNISI')) {
+                    item.locations = {}; 
+                }
+                st.add(item);
                 rescuedCount++;
             });
 
             tx.oncomplete = () => {
-                alert(`Import & Merge Selesai!\n📥 ${Object.keys(consolidatedExcel).length} Part Master bersih dari Excel (Duplikat digabungkan).\n🛡️ ${rescuedCount} Part Lokal (Temuan) dipertahankan.`);
+                alert(`Import Selesai!\n✅ Sparepart Baik & Teknisi berhasil dipisah.\n🧹 Auto-Migrasi Lokasi diterapkan.\n🛡️ ${rescuedCount} Part Temuan dipertahankan.`);
                 location.reload();
             };
         }; 
